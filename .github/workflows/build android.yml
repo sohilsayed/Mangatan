@@ -16,6 +16,12 @@ jobs:
       with:
         submodules: recursive
     
+    # CRITICAL: Install p7zip-full for 7z extraction in Makefile
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y p7zip-full
+    
     - name: Setup Java 17
       uses: actions/setup-java@v4
       with:
@@ -63,6 +69,24 @@ jobs:
       with:
         workspaces: "bin/mangatan_android"
     
+    # Download Java dependencies (Gson and AnkiDroid API)
+    - name: Download Java Dependencies
+      run: |
+        mkdir -p bin/mangatan_android/libs
+        
+        # Gson for JSON handling
+        curl -L "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar" \
+          -o bin/mangatan_android/libs/gson-2.10.1.jar
+        
+        # AnkiDroid API - Use a working release version from JitPack
+        # We'll use v2.18alpha6 which is confirmed working
+        curl -L "https://jitpack.io/com/github/ankidroid/Anki-Android/v2.18alpha6/Anki-Android-v2.18alpha6.aar" \
+          -o bin/mangatan_android/libs/ankidroid-api.aar
+        
+        # Extract classes.jar from the AAR
+        cd bin/mangatan_android/libs
+        unzip -o ankidroid-api.aar "classes.jar" && mv classes.jar ankidroid-api.jar
+    
     - name: Prepare Assets
       run: |
         make android_webui
@@ -72,6 +96,8 @@ jobs:
     
     - name: Build Native Webview APK (Debug)
       working-directory: bin/mangatan_android
+      env:
+        CLASSPATH: "libs/gson-2.10.1.jar:libs/ankidroid-api.jar"
       run: |
         NDK_ROOT=${ANDROID_NDK_HOME}
         if [ -z "$NDK_ROOT" ]; then
