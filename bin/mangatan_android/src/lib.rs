@@ -3,12 +3,12 @@ use axum::{
     Json, Router,
     body::{Body, Bytes},
     extract::{
-        FromRequestParts, Request, State,
+        FromRequestParts, Json as AxumJson, Request, State,
         ws::{Message, WebSocket, WebSocketUpgrade},
     },
     http::{HeaderMap, Method, StatusCode, Uri},
     response::{IntoResponse, Response},
-    routing::any,
+    routing::{any, post},
 };
 use eframe::egui;
 use flate2::read::GzDecoder;
@@ -22,6 +22,7 @@ use jni::{
 use lazy_static::lazy_static;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::sync::atomic::AtomicI64;
 use std::{
     collections::VecDeque,
@@ -46,7 +47,7 @@ use tokio_tungstenite::{
         protocol::{Message as TungsteniteMessage, frame::coding::CloseCode},
     },
 };
-use tower_http::cors::{AllowOrigin, CorsLayer};
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::{error, info, trace};
 use tracing_log::LogTracer;
 use tracing_subscriber::{EnvFilter, fmt::MakeWriter};
@@ -383,9 +384,27 @@ fn android_main(app: AndroidApp) {
         });
 
         rt.block_on(async move {
-            if let Err(e) = start_web_server(files_dir_clone).await {
-                error!("Web Server Crashed: {:?}", e);
-            }
+            let main_router = create_web_server_router(files_dir_clone.clone()).await;
+            
+            let anki_cors = CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS])
+                .allow_headers(Any);
+            
+            let anki_router = Router::new()
+                .route("/", post(anki_connect_handler))
+                .layer(anki_cors);
+
+            let main_listener = TcpListener::bind("0.0.0.0:4568").await.unwrap();
+            let anki_listener = TcpListener::bind("0.0.0.0:8765").await.unwrap();
+
+            info!("✅ Main Server running on :4568");
+            info!("✅ Anki-Connect running on :8765");
+
+            let _ = tokio::join!(
+                axum::serve(main_listener, main_router),
+                axum::serve(anki_listener, anki_router)
+            );
         });
     });
 
@@ -487,7 +506,65 @@ fn launch_webview_activity(app: &AndroidApp) {
         .expect("Failed to start Webview Activity");
 }
 
-async fn start_web_server(data_dir: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+async fn anki_connect_handler(
+    AxumJson(payload): AxumJson<Value>
+) -> impl IntoResponse {
+    let payload_str = payload.to_string();
+
+    let ctx = ndk_context::android_context();
+    let vm = unsafe { jni::JavaVM::from_raw(ctx.vm().cast()).unwrap() };
+    let mut env = vm.attach_current_thread().unwrap();
+    let context_obj = unsafe { JObject::from_raw(ctx.context().cast()) };
+
+    let bridge_class = match env.find_class("com/mangatan/app/AnkiBridge") {
+        Ok(c) => c,
+        Err(e) => {
+            error!("❌ Could not find AnkiBridge class: {:?}", e);
+            return (
+                [(axum::http::header::CONTENT_TYPE, "application/json")],
+                r#"{"error": "Internal Error: AnkiBridge class missing"}"#.to_string()
+            );
+        }
+    };
+
+    let bridge = env.new_object(
+        bridge_class, 
+        "(Landroid/content/Context;)V", 
+        &[JValue::Object(&context_obj)]
+    ).expect("Failed to create AnkiBridge instance");
+
+    let j_payload = env.new_string(payload_str).expect("Failed to create Java String");
+
+    let response_jobject = env.call_method(
+        bridge,
+        "handleRequest",
+        "(Ljava/lang/String;)Ljava/lang/String;",
+        &[JValue::Object(&j_payload)]
+    );
+
+    let response_str = match response_jobject {
+        Ok(val) => {
+            let j_str = val.l().unwrap();
+            let r_str: String = env.get_string(&j_str.into()).unwrap().into();
+            r_str
+        }
+        Err(e) => {
+            error!("❌ Java method call failed: {:?}", e);
+            let _ = env.exception_describe();
+            r#"{"error": "Java Exception occurred"}"#.to_string()
+        }
+    };
+
+    (
+        [
+            (axum::http::header::CONTENT_TYPE, "application/json"),
+            (axum::http::header::ACCESS_CONTROL_ALLOW_ORIGIN, "*"),
+        ],
+        response_str
+    )
+}
+
+async fn create_web_server_router(data_dir: PathBuf) -> Router<AppState> {
     info!("🚀 Initializing Axum Proxy Server on port 4568...");
     let ocr_router = mangatan_ocr_server::create_router(data_dir.clone());
 
@@ -550,10 +627,7 @@ async fn start_web_server(data_dir: PathBuf) -> Result<(), Box<dyn std::error::E
 
     let app_with_state = app.with_state(state);
 
-    let listener = TcpListener::bind("0.0.0.0:4568").await?;
-    info!("✅ Web Server listening on 0.0.0.0:4568");
-    axum::serve(listener, app_with_state).await?;
-    Ok(())
+    app_with_state
 }
 
 async fn serve_react_app(State(state): State<AppState>, uri: Uri) -> impl IntoResponse {
@@ -1498,6 +1572,31 @@ fn check_and_request_permissions(app: &AndroidApp) {
         } else {
             info!("Legacy Storage Permissions already granted.");
         }
+    }
+
+    // --- ANKI PERMISSION CHECK ---
+    let anki_perm_str = "com.ichi2.anki.permission.READ_WRITE_DATABASE";
+    let anki_perm = env.new_string(anki_perm_str).unwrap();
+    
+    let check_anki = env.call_method(
+        &context,
+        "checkSelfPermission",
+        "(Ljava/lang/String;)I",
+        &[JValue::Object(&anki_perm)],
+    ).unwrap().i().unwrap();
+
+    if check_anki != 0 {
+        info!("Requesting AnkiDroid Permissions...");
+        let string_cls = env.find_class("java/lang/String").unwrap();
+        let perms_array = env.new_object_array(1, string_cls, JObject::null()).unwrap();
+        env.set_object_array_element(&perms_array, 0, anki_perm).unwrap();
+        
+        let _ = env.call_method(
+            &context,
+            "requestPermissions",
+            "([Ljava/lang/String;I)V",
+            &[JValue::Object(&perms_array), JValue::Int(103)], // Request Code 103
+        );
     }
 }
 

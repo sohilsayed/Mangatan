@@ -65,6 +65,26 @@ name = "android.permission.POST_NOTIFICATIONS"
 [[package.metadata.android.uses_permission]]
 name = "android.permission.REQUEST_INSTALL_PACKAGES"
 
+[[package.metadata.android.uses_permission]]
+name = "com.ichi2.anki.permission.READ_WRITE_DATABASE"
+
+[[package.metadata.android.extra_manifest_elements]]
+tag = "queries"
+children = [
+    { tag = "package", attributes = { "android:name" = "com.ichi2.anki" } }
+]
+
+[[package.metadata.android.extra_manifest_elements]]
+tag = "provider"
+attributes = { "android:name" = "androidx.core.content.FileProvider", "android:authorities" = "com.mangatan.app.fileprovider", "android:exported" = "false", "android:grantUriPermissions" = "true" }
+children = [
+    { tag = "meta-data", attributes = { "android:name" = "android.support.FILE_PROVIDER_PATHS", "android:resource" = "@xml/file_provider_paths" } }
+]
+
+[package.metadata.android.dependencies]
+"com.ichi2.anki:api" = "1.3.0"
+"com.google.code.gson:gson" = "2.10.1"
+
 [package.metadata.android.application]
 allow_native_heap_pointer_tagging = false
 request_legacy_external_storage = true
@@ -139,3 +159,5 @@ tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 winit = "0.30"
 flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
+
+serde_json = "1.0.149"
