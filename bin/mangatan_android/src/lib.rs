@@ -47,7 +47,6 @@ use tokio_tungstenite::{
         protocol::{Message as TungsteniteMessage, frame::coding::CloseCode},
     },
 };
-use tower::make::Shared;
 use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tracing::{error, info, trace};
 use tracing_log::LogTracer;
@@ -404,8 +403,8 @@ fn android_main(app: AndroidApp) {
             info!("✅ Anki-Connect running on :8765");
 
             let _ = tokio::join!(
-                axum::serve(main_listener, Shared::new(main_router.into_service())),
-                axum::serve(anki_listener, Shared::new(anki_router.into_service()))
+                axum::serve(main_listener, main_router),
+                axum::serve(anki_listener, anki_router)
             );
         });
     });
@@ -566,7 +565,7 @@ async fn anki_connect_handler(
     response
 }
 
-async fn create_web_server_router(data_dir: PathBuf) -> Router<AppState> {
+async fn create_web_server_router(data_dir: PathBuf) -> Router {
     info!("🚀 Initializing Axum Proxy Server on port 4568...");
     let ocr_router = mangatan_ocr_server::create_router(data_dir.clone());
 
