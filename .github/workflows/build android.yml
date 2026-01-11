@@ -69,23 +69,50 @@ jobs:
       with:
         workspaces: "bin/mangatan_android"
     
-    # Download Java dependencies (Gson and AnkiDroid API)
+    # Download Java dependencies and place them where cargo-apk2 expects them
     - name: Download Java Dependencies
       run: |
-        mkdir -p bin/mangatan_android/libs
+        # Create the directory structure cargo-apk2 looks for
+        mkdir -p bin/mangatan_android/res/raw
         
-        # Gson for JSON handling
+        # Download Gson
         curl -L "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar" \
-          -o bin/mangatan_android/libs/gson-2.10.1.jar
+          -o /tmp/gson-2.10.1.jar
         
-        # AnkiDroid API - Use a working release version from JitPack
-        # We'll use v2.18alpha6 which is confirmed working
-        curl -L "https://jitpack.io/com/github/ankidroid/Anki-Android/v2.18alpha6/Anki-Android-v2.18alpha6.aar" \
-          -o bin/mangatan_android/libs/ankidroid-api.aar
+        # Download AndroidX Core (needed for FileProvider)
+        curl -L "https://maven.google.com/androidx/core/core/1.12.0/core-1.12.0.aar" \
+          -o /tmp/androidx-core.aar
         
-        # Extract classes.jar from the AAR
-        cd bin/mangatan_android/libs
+        # Download AnkiDroid API (try the old Java version from a mirror or build from source)
+        # Using v2.18alpha6 AAR
+        curl -L "https://jitpack.io/com/github/ankidroid/Anki-Android/api/v2.18alpha6/api-v2.18alpha6.aar" \
+          -o /tmp/ankidroid-api.aar
+        
+        # Extract JARs from AARs
+        cd /tmp
+        unzip -o androidx-core.aar "classes.jar" && mv classes.jar androidx-core.jar
         unzip -o ankidroid-api.aar "classes.jar" && mv classes.jar ankidroid-api.jar
+        
+        # Copy all JARs to a location and add to Cargo.toml metadata
+        mkdir -p $HOME/.android_deps
+        cp gson-2.10.1.jar androidx-core.jar ankidroid-api.jar $HOME/.android_deps/
+    
+    - name: Configure Cargo.toml for dependencies
+      run: |
+        cd bin/mangatan_android
+        
+        # Append dependency paths to Cargo.toml if not already present
+        if ! grep -q "compile_time_classpath" Cargo.toml; then
+          cat >> Cargo.toml <<EOF
+        
+        [package.metadata.android]
+        compile_time_classpath = [
+            "$HOME/.android_deps/gson-2.10.1.jar",
+            "$HOME/.android_deps/androidx-core.jar",
+            "$HOME/.android_deps/ankidroid-api.jar"
+        ]
+        EOF
+        fi
     
     - name: Prepare Assets
       run: |
@@ -96,8 +123,6 @@ jobs:
     
     - name: Build Native Webview APK (Debug)
       working-directory: bin/mangatan_android
-      env:
-        CLASSPATH: "libs/gson-2.10.1.jar:libs/ankidroid-api.jar"
       run: |
         NDK_ROOT=${ANDROID_NDK_HOME}
         if [ -z "$NDK_ROOT" ]; then
