@@ -1222,6 +1222,7 @@ async fn start_web_server(
     let ocr_router = manatan_ocr_server::create_router(data_dir.clone());
     let yomitan_router = manatan_yomitan_server::create_router(data_dir.clone());
     let audio_router = manatan_audio_server::create_router(data_dir.clone());
+    let video_router = manatan_video_server::create_router(data_dir.clone());
 
     let cors = CorsLayer::new()
         .allow_origin(AllowOrigin::mirror_request())
@@ -1255,6 +1256,7 @@ async fn start_web_server(
         .nest_service("/api/ocr", ocr_router)
         .nest_service("/api/yomitan", yomitan_router)
         .nest_service("/api/audio", audio_router)
+        .nest_service("/api/video", video_router)
         .merge(manatan_router)
         .fallback(serve_react_app)
         .layer(cors);
