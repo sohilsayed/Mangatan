@@ -274,7 +274,7 @@ download_android_jre: bin/manatan_android/assets/jre.tar.gz
 # -----------------------------------
 
 .PHONY: setup-depends
-setup-depends: desktop_webui download_jar download_natives
+setup-depends: desktop_webui download_jar download_natives download_ffmpeg
 
 .PHONY: dev
 dev: setup-depends
@@ -392,6 +392,53 @@ bin/manatan/resources/Suwayomi-Server.jar:
 .PHONY: download_jar
 download_jar: bin/manatan/resources/Suwayomi-Server.jar
 
+# --- FFmpeg Download & Extract ---
+FFMPEG_RELEASE_URL := https://github.com/sohilsayed/ffmpeg-manatan/releases/download/release
+
+# Android
+ffmpeg-android.zip:
+	curl -L "$(FFMPEG_RELEASE_URL)/ffmpeg-android.zip" -o $@
+
+crates/video-server/bin/android-arm64/ffmpeg: ffmpeg-android.zip
+	mkdir -p crates/video-server/bin/android-arm64
+	rm -rf temp_android
+	unzip -o $< -d temp_android
+	cp temp_android/ffmpeg-android/arm64-v8a/bin/ffmpeg $@
+	rm -rf temp_android
+
+crates/video-server/bin/android-armeabi-v7a/ffmpeg: ffmpeg-android.zip
+	mkdir -p crates/video-server/bin/android-armeabi-v7a
+	rm -rf temp_android
+	unzip -o $< -d temp_android
+	cp temp_android/ffmpeg-android/armeabi-v7a/bin/ffmpeg $@
+	rm -rf temp_android
+
+# Linux
+ffmpeg-linux-static.zip:
+	curl -L "$(FFMPEG_RELEASE_URL)/ffmpeg-linux-static.zip" -o $@
+
+crates/video-server/bin/linux-x86_64/ffmpeg: ffmpeg-linux-static.zip
+	mkdir -p crates/video-server/bin/linux-x86_64
+	rm -rf temp_linux
+	unzip -o $< -d temp_linux
+	cp temp_linux/ffmpeg-linux-static/bin/ffmpeg $@
+	rm -rf temp_linux
+
+# Windows
+ffmpeg-win-static.zip:
+	curl -L "$(FFMPEG_RELEASE_URL)/ffmpeg-win-static.zip" -o $@
+
+crates/video-server/bin/windows-x86_64/ffmpeg.exe: ffmpeg-win-static.zip
+	mkdir -p crates/video-server/bin/windows-x86_64
+	rm -rf temp_windows
+	unzip -o $< -d temp_windows
+	cp temp_windows/ffmpeg-win-static/bin/ffmpeg.exe $@
+	rm -rf temp_windows
+
+.PHONY: download_ffmpeg
+download_ffmpeg: crates/video-server/bin/android-arm64/ffmpeg crates/video-server/bin/android-armeabi-v7a/ffmpeg crates/video-server/bin/linux-x86_64/ffmpeg crates/video-server/bin/windows-x86_64/ffmpeg.exe
+
+
 SUWAYOMI_SERVER_DIR := ../Suwayomi-Server
 SUWAYOMI_SERVER_BUILD_DIR := $(SUWAYOMI_SERVER_DIR)/server/build
 SUWAYOMI_SERVER_JAR_GLOB := $(SUWAYOMI_SERVER_BUILD_DIR)/Suwayomi-Server-*.jar
@@ -508,7 +555,7 @@ ios_jre: bin/manatan_ios/Manatan/lib/lib/modules
 
 
 .PHONY: docker-build
-docker-build: desktop_webui download_jar download_natives bundle_jre
+docker-build: desktop_webui download_jar download_natives bundle_jre download_ffmpeg
 	@echo "🐳 Building Docker image for local architecture: $(DOCKER_ARCH)"
 	
 	# 1. Build the Rust binary
