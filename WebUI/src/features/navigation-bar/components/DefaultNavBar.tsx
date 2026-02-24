@@ -21,6 +21,7 @@ import { useBackButton } from '@/base/hooks/useBackButton.ts';
 import { useGetOptionForDirection } from '@/features/theme/services/ThemeCreator.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 import { DesktopSideBar } from '@/features/navigation-bar/components/DesktopSideBar.tsx';
+import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { useResizeObserver } from '@/base/hooks/useResizeObserver.tsx';
 import { MobileBottomBar } from '@/features/navigation-bar/components/MobileBottomBar.tsx';
 import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';

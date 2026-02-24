@@ -19,7 +19,7 @@ import {
     Checkbox,
     Stack,
 } from '@mui/material';
-import { useColorScheme } from '@mui/material/styles';
+import { useColorScheme, useTheme } from '@mui/material/styles';
 import { useAppThemeContext } from '@/features/theme/AppThemeContext.tsx';
 import { Select } from '@/base/components/inputs/Select.tsx';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
@@ -116,19 +116,6 @@ export const Appearance = () => {
         request: { loading, error, refetch },
     } = useMetadataServerSettings();
 
-    const {
-        defaultStartupPage,
-        setDefaultStartupPage,
-        visibleTabs,
-        toggleTabVisibility
-    } = useNavigationSettings();
-
-    const updateMetadataSetting = createUpdateMetadataServerSettings<keyof MetadataThemeSettings>((e) =>
-        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
-    );
-
-    const isDarkMode = MediaQuery.getThemeMode(actualThemeMode) === ThemeMode.DARK;
-
     if (loading) {
         return <LoadingPlaceholder />;
     }
@@ -142,6 +129,19 @@ export const Appearance = () => {
             />
         );
     }
+
+    const {
+        defaultStartupPage,
+        setDefaultStartupPage,
+        visibleTabs,
+        toggleTabVisibility
+    } = useNavigationSettings();
+
+    const updateMetadataSetting = createUpdateMetadataServerSettings<keyof MetadataThemeSettings>((e) =>
+        makeToast(t('global.error.label.failed_to_save_changes'), 'error', getErrorMessage(e)),
+    );
+
+    const isDarkMode = MediaQuery.getThemeMode(actualThemeMode) === ThemeMode.DARK;
 
     return (
         <Box sx={{ p: 2, pb: 4 }}>
