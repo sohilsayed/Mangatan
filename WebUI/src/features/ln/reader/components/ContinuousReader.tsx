@@ -1,10 +1,10 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { Virtuoso, VirtuosoHandle } from 'react-virtuoso';
 import { Settings } from '@/Manatan/types';
 import { ReaderNavigationUI } from './ReaderNavigationUI';
 import { ChapterBlock } from './ChapterBlock';
 import { ReaderContextMenu } from './ReaderContextMenu';
 import { SelectionHandles } from './SelectionHandles';
-import { useChapterLoader } from '../hooks/useChapterLoader';
 import { useTextLookup } from '../hooks/useTextLookup';
 import { buildContainerStyles } from '../utils/styles';
 import { getReaderTheme } from '../utils/themes';
@@ -65,12 +65,13 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // ========================================================================
 
     const containerRef = useRef<HTMLDivElement>(null);
+    const virtuosoRef = useRef<VirtuosoHandle>(null);
     const contentRef = useRef<HTMLDivElement>(null);
     const blockTrackerRef = useRef<BlockTracker | null>(null);
     const lastReportedChapterRef = useRef(initialChapter);
     const hasRestoredRef = useRef(false);
     const scrollDebounceRef = useRef<number | null>(null);
-    
+
     // Save lock to prevent saving immediately after restoration (3 seconds)
     const saveLockUntilRef = useRef<number>(0);
     const SAVE_LOCK_DURATION_MS = 3000;
@@ -179,31 +180,11 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         [settings, isVertical, isRTL]
     );
 
-    // ========================================================================
-    // Chapter Loader
-    // ========================================================================
-
-    const { loadChaptersAround, getChapterHtml, loadingState, loadChapter } = useChapterLoader({
-        chapters,
-        preloadCount: 3,
-    });
-
     useEffect(() => {
-        loadChaptersAround(initialChapter);
-    }, [initialChapter, loadChaptersAround]);
-
-    useEffect(() => {
-        const checkLoaded = () => {
-            const loaded = chapters.some((_, i) => getChapterHtml(i) !== null);
-            if (loaded && !contentLoaded) {
-                setContentLoaded(true);
-            }
-        };
-
-        checkLoaded();
-        const timer = setInterval(checkLoaded, 100);
-        return () => clearInterval(timer);
-    }, [chapters, getChapterHtml, contentLoaded]);
+        if (chapters.length > 0 && !contentLoaded) {
+            setContentLoaded(true);
+        }
+    }, [chapters, contentLoaded]);
 
     // ========================================================================
     // Register Save Function
@@ -305,12 +286,12 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             console.log('[ContinuousReader] Save locked, skipping block change');
             return;
         }
-        
+
         // Skip if this is the same block as the restored position (no actual user movement)
         if (currentBlockIdRef.current === blockId) {
             return;
         }
-        
+
         currentBlockIdRef.current = blockId;
         currentBlockElementRef.current = element;
 
@@ -327,7 +308,6 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             const chapterIndex = parseInt(chapterMatch[1], 10);
             if (chapterIndex !== currentChapter) {
                 setCurrentChapter(chapterIndex);
-                loadChaptersAround(chapterIndex);
             }
         }
 
@@ -416,40 +396,35 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
 
     useEffect(() => {
         if (!contentLoaded || hasRestoredRef.current || !initialProgress) return;
-        if (!containerRef.current) return;
 
-        const container = containerRef.current;
         const targetChapter = initialProgress.chapterIndex ?? 0;
 
-        // Fast restoration: load target chapter immediately, then restore
         const tryRestore = async () => {
-            // Step 1: Ensure target chapter is loaded immediately
-            if (!getChapterHtml(targetChapter)) {
-                console.log('[ContinuousReader] Loading target chapter immediately:', targetChapter);
-                loadChapter(targetChapter, true);
-                
-                // Wait for React to render the chapter into DOM
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
+            if (!virtuosoRef.current) return;
 
-            // Step 2: Verify blocks exist in DOM
+            console.log('[ContinuousReader] Restoring chapter index:', targetChapter);
+
+            // Step 1: Scroll to chapter
+            virtuosoRef.current.scrollToIndex({
+                index: targetChapter,
+                align: 'start',
+                behavior: 'auto'
+            });
+
+            // Step 2: Wait for Virtuoso to render the items
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            const container = containerRef.current;
+            if (!container) return;
+
+            // Step 3: Verify blocks exist in DOM
             const blocks = container.querySelectorAll(`[data-block-id^="ch${targetChapter}-b"]`);
             if (blocks.length === 0) {
                 console.log('[ContinuousReader] No blocks found, waiting...');
-                // Wait a bit more for DOM to update
-                await new Promise(resolve => setTimeout(resolve, 100));
+                await new Promise(resolve => setTimeout(resolve, 200));
             }
 
-            // Step 3: Check again and restore if ready
-            const finalBlocks = container.querySelectorAll(`[data-block-id^="ch${targetChapter}-b"]`);
-            if (finalBlocks.length === 0) {
-                console.log('[ContinuousReader] No blocks after wait, skipping restoration');
-                hasRestoredRef.current = true;
-                setRestorationComplete(true);
-                return;
-            }
-
-            console.log('[ContinuousReader] Chapter ready, restoring position');
+            console.log('[ContinuousReader] Chapter ready, restoring precise position');
 
             const result = restoreReadingPosition(
                 container,
@@ -469,175 +444,92 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             );
 
             hasRestoredRef.current = true;
-            
-            // Initialize current block to restored position
-            // This prevents BlockTracker from immediately saving a different block
+
             if (result.blockId) {
                 currentBlockIdRef.current = result.blockId;
             }
-            
-            console.log('[ContinuousReader] Position restored:', result);
-            
-            // Wait for scroll to settle before starting BlockTracker
-            // This prevents BlockTracker from detecting the wrong block immediately
+
             setTimeout(() => {
-                console.log('[ContinuousReader] Scroll settled, enabling BlockTracker');
-                // Set save lock for 3 seconds to prevent overwriting restored position
                 saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
                 setRestorationComplete(true);
             }, 500);
         };
 
         tryRestore();
-    }, [contentLoaded, initialProgress, isVertical, isRTL, stats?.blockMaps, getChapterHtml, loadChapter]);
+    }, [contentLoaded, initialProgress, isVertical, isRTL, stats?.blockMaps]);
 
     // ========================================================================
     // Direct Navigation (for TOC/search - bypasses restoration)
     // ========================================================================
 
     const scrollToBlock = useCallback((blockId: string, blockLocalOffset?: number) => {
-        const container = containerRef.current;
-        if (!container) return;
-
-        // Extract chapter index from blockId
         const chapterMatch = blockId.match(/ch(\d+)-/);
         const chapterIndex = chapterMatch ? parseInt(chapterMatch[1], 10) : 0;
 
-        console.log('[ContinuousReader] scrollToBlock:', blockId, 'chapter:', chapterIndex);
-
-        // Function to actually scroll to the block
         const doScroll = () => {
+            const container = containerRef.current;
+            if (!container) return false;
+
             const block = container.querySelector(`[data-block-id="${blockId}"]`);
-            if (!block) {
-                console.log('[ContinuousReader] scrollToBlock: block not found:', blockId);
-                return false;
-            }
+            if (!block) return false;
 
-            // Disable restoration temporarily so we don't trigger it
             hasRestoredRef.current = true;
-
-            // Scroll to block
             block.scrollIntoView({ behavior: 'auto', block: 'start' });
 
-            // Apply local offset if provided
             if (blockLocalOffset && blockLocalOffset > 0) {
                 setTimeout(() => {
                     applyLocalOffset(block as Element, container, blockLocalOffset, isVertical, isRTL);
                 }, 50);
             }
 
-            // Update current block tracking
             currentBlockIdRef.current = blockId;
-
-            // Update chapter if changed
             if (chapterIndex !== currentChapter) {
                 setCurrentChapter(chapterIndex);
             }
-
-            // Mark restoration complete
             setRestorationComplete(true);
-
-            // Set save lock to prevent overwriting
             saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
-
             return true;
         };
 
-        // Check if chapter is already loaded (has blocks in DOM)
-        const existingBlocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
-        
-        if (existingBlocks.length > 0) {
-            // Chapter already loaded, try to scroll immediately
-            doScroll();
-        } else {
-            // Chapter not loaded yet, load it first
-            console.log('[ContinuousReader] scrollToBlock: loading chapter:', chapterIndex);
-            loadChaptersAround(chapterIndex);
-            
-            // Wait for chapter to load and render
-            const maxAttempts = 10;
-            let attempts = 0;
-            
-            const tryScroll = () => {
-                attempts++;
-                const blocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
-                
-                if (blocks.length > 0) {
-                    console.log('[ContinuousReader] scrollToBlock: chapter loaded after', attempts * 100, 'ms');
-                    doScroll();
-                } else if (attempts < maxAttempts) {
-                    console.log('[ContinuousReader] scrollToBlock: retrying, attempt:', attempts);
-                    setTimeout(tryScroll, 100);
-                } else {
-                    console.log('[ContinuousReader] scrollToBlock: failed to load chapter after', maxAttempts * 100, 'ms');
+        if (virtuosoRef.current) {
+            virtuosoRef.current.scrollToIndex({
+                index: chapterIndex,
+                align: 'start',
+                behavior: 'auto'
+            });
+
+            setTimeout(() => {
+                if (!doScroll()) {
+                    setTimeout(doScroll, 200);
                 }
-            };
-            
-            setTimeout(tryScroll, 100);
+            }, 100);
         }
-    }, [isVertical, isRTL, currentChapter, loadChaptersAround]);
+    }, [isVertical, isRTL, currentChapter]);
 
     const scrollToChapter = useCallback((chapterIndex: number) => {
-        const container = containerRef.current;
-        if (!container) return;
+        if (virtuosoRef.current) {
+            virtuosoRef.current.scrollToIndex({
+                index: chapterIndex,
+                align: 'start',
+                behavior: 'auto'
+            });
 
-        console.log('[ContinuousReader] scrollToChapter:', chapterIndex);
-
-        // Function to do the actual scrolling
-        const doScroll = (): boolean => {
-            const blocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
-            if (blocks.length === 0) {
-                return false;
-            }
-
-            // Disable restoration temporarily
-            hasRestoredRef.current = true;
-
-            // Scroll to first block
-            (blocks[0] as HTMLElement).scrollIntoView({ behavior: 'auto', block: 'start' });
-
-            // Update state
-            setCurrentChapter(chapterIndex);
-            currentBlockIdRef.current = blocks[0].getAttribute('data-block-id');
-
-            // Mark restoration complete
-            setRestorationComplete(true);
-
-            // Set save lock
-            saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
-
-            return true;
-        };
-
-        // Check if chapter is already loaded
-        const existingBlocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
-        
-        if (existingBlocks.length > 0) {
-            doScroll();
-        } else {
-            // Chapter not loaded, load it first
-            console.log('[ContinuousReader] scrollToChapter: loading chapter:', chapterIndex);
-            loadChaptersAround(chapterIndex);
-            
-            // Wait for chapter to load with retry logic
-            const maxAttempts = 10;
-            let attempts = 0;
-            
-            const tryScroll = () => {
-                attempts++;
-                if (doScroll()) {
-                    console.log('[ContinuousReader] scrollToChapter: chapter loaded after', attempts * 100, 'ms');
-                } else if (attempts < maxAttempts) {
-                    console.log('[ContinuousReader] scrollToChapter: retrying, attempt:', attempts);
-                    setTimeout(tryScroll, 100);
-                } else {
-                    console.log('[ContinuousReader] scrollToChapter: failed to load chapter after', maxAttempts * 100, 'ms');
+            setTimeout(() => {
+                const container = containerRef.current;
+                if (container) {
+                    const blocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
+                    if (blocks.length > 0) {
+                        hasRestoredRef.current = true;
+                        (blocks[0] as HTMLElement).scrollIntoView({ behavior: 'auto', block: 'start' });
+                        setCurrentChapter(chapterIndex);
+                        currentBlockIdRef.current = blocks[0].getAttribute('data-block-id');
+                        setRestorationComplete(true);
+                        saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
+                    }
                 }
-            };
-            
-            setTimeout(tryScroll, 100);
+            }, 100);
         }
-    }, [loadChaptersAround]);
+    }, []);
 
     // Expose navigation functions via ref
     useEffect(() => {
@@ -902,12 +794,17 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
 
     return (
         <div
-    className={`continuous-reader-wrapper ${isRTL ? 'rtl-mode' : 'ltr-mode'}`}
-    style={wrapperStyle}
-    data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
->
-            <div
-                ref={containerRef}
+            className={`continuous-reader-wrapper ${isRTL ? 'rtl-mode' : 'ltr-mode'}`}
+            style={wrapperStyle}
+            data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
+        >
+            <Virtuoso
+                ref={virtuosoRef}
+                scrollerRef={(ref) => (containerRef.current = ref as HTMLDivElement)}
+                data={chapters}
+                useWindowScroll={false}
+                increaseViewportBy={1000}
+                horizontalDirection={isVertical}
                 className={`continuous-reader-container ${isVertical ? 'vertical' : 'horizontal'}`}
                 style={{
                     ...containerStyles,
@@ -917,24 +814,22 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 onClick={handleContentClick}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
-            >
-                <div
-                    ref={contentRef}
-                    className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
-                    style={contentStyle}
-                >
-                    {chapters.map((_, index) => (
+                itemContent={(index, html) => (
+                    <div
+                        ref={index === currentChapter ? contentRef : null}
+                        className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                        style={contentStyle}
+                    >
                         <ChapterBlock
-                            key={index}
-                            html={getChapterHtml(index)}
+                            html={html}
                             index={index}
-                            isLoading={loadingState.get(index) || false}
+                            isLoading={false}
                             isVertical={isVertical}
                             settings={settings}
                         />
-                    ))}
-                </div>
-            </div>
+                    </div>
+                )}
+            />
 
             <ReaderNavigationUI
                 visible={showNavigation}
