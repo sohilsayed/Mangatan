@@ -497,7 +497,6 @@
       "menu": "Menu",
       "mobile": "Mobile",
       "more": "More",
-      "navigation": "Navigation",
       "never": "Never",
       "next": "Next",
       "none": "None",
@@ -1129,11 +1128,6 @@
     }
   },
   "settings": {
-    "navigation": {
-      "startup_page": "Default startup page",
-      "startup_page_description": "Select the page to show when opening the app",
-      "visible_tabs": "Visible tabs"
-    },
     "about": {
       "server": {
         "label": {

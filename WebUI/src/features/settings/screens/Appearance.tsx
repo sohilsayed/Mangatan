@@ -273,10 +273,10 @@ export const Appearance = () => {
             </SettingCard>
 
             {/* Navigation Section */}
-            <SettingCard title={t('global.label.navigation')}>
+            <SettingCard title="Navigation">
                 <SettingItem
-                    title={t('settings.navigation.startup_page')}
-                    description={t('settings.navigation.startup_page_description')}
+                    title="Default Startup Page"
+                    description="Select the page to show when opening the app"
                     action={
                         <Select
                             value={defaultStartupPage}
@@ -299,7 +299,7 @@ export const Appearance = () => {
                 <Divider sx={{ opacity: 0.5 }} />
 
                 <Typography variant="subtitle2" sx={{ mt: 1, fontWeight: 600 }}>
-                    {t('settings.navigation.visible_tabs')}
+                    Visible Tabs
                 </Typography>
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 1, mt: 1 }}>
