@@ -105,7 +105,7 @@ const ELEMENT_CONFIG: Record<string, {
 
 const VOID_TAGS = ['br', 'img', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'source', 'track', 'wbr'];
 
-const isKanji = (ch: string) => /[\u4e00-\u9faf\u3400-\u4dbf]/.test(ch);
+const isKanji = (ch: string) => /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2ebe0}\u{2f800}-\u{2fa1f}々ヶ]/u.test(ch);
 
 const ClickableHeadwordText: React.FC<{
     text: string;

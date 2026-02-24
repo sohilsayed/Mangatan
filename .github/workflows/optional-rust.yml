@@ -26,6 +26,13 @@ jobs:
     - name: Install cargo udeps
       run: cargo install cargo-udeps --locked
 
+    - name: Prepare Resources
+      run: |
+        make download_jar
+        make download_natives
+        mkdir -p bin/manatan/resources/webui
+        touch bin/manatan/resources/webui/index.html
+
     - name: Run cargo udeps
       run: cargo +nightly udeps --workspace --tests --all-targets --release --exclude ef-tests
   
