@@ -319,7 +319,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             totalProgress: position.totalProgress,
             blockId: position.blockId,
         });
-    }, [calculatePositionFromBlock, currentChapter, loadChaptersAround]);
+    }, [calculatePositionFromBlock, currentChapter]);
 
     // ========================================================================
     // Block Tracker Setup
