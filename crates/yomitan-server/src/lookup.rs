@@ -499,7 +499,8 @@ impl LookupService {
                     }
                 }
 
-                // Get dictionary name for this kanji - look up from DB directly to ensure we get the name
+                // Get dictionary name for this kanji - look up from DB directly to ensure we get
+                // the name
                 let dict_name: String = conn
                     .query_row(
                         "SELECT name FROM dictionaries WHERE id = ?",

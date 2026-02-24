@@ -6,6 +6,7 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  */
 
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -42,6 +43,12 @@ export const Appearance = () => {
     const { themeMode, setThemeMode, shouldUsePureBlackMode, setShouldUsePureBlackMode } = useAppThemeContext();
     const { mode, setMode } = useColorScheme();
     const actualThemeMode = (mode ?? themeMode) as ThemeMode;
+
+    useEffect(() => {
+        if (!mode && themeMode) {
+            setMode(themeMode);
+        }
+    }, [mode, themeMode, setMode]);
 
     useAppTitle(t('settings.appearance.title'));
 
