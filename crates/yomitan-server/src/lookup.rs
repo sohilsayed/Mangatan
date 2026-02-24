@@ -304,14 +304,11 @@ impl LookupService {
                 std::collections::HashMap::new();
 
             if let Ok(meta_iter) = meta_result {
-                for meta_item in meta_iter {
-                    if let Ok((meta_type, data, dict_name)) = meta_item {
-                        if meta_type == "freq" {
-                            // Parse frequency data - try JSON first, otherwise use as-is
-                            let freq_value: String =
-                                serde_json::from_str(&data).unwrap_or_else(|_| data);
-                            freq_map.entry(0).or_default().push((dict_name, freq_value));
-                        }
+                for (meta_type, data, dict_name) in meta_iter.flatten() {
+                    if meta_type == "freq" {
+                        // Parse frequency data - try JSON first, otherwise use as-is
+                        let freq_value: String = serde_json::from_str(&data).unwrap_or(data);
+                        freq_map.entry(0).or_default().push((dict_name, freq_value));
                     }
                 }
             }
