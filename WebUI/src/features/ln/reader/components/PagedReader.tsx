@@ -480,6 +480,14 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     }, [stats, measuredPageSize, layout, isVertical]);
 
     useEffect(() => {
+        const pages = chapterPageCounts[currentSection] || 1;
+        setTotalPagesInChapter(pages);
+        if (pages > 0 && chapterPageCounts.some(p => p > 0)) {
+            setContentReady(true);
+        }
+    }, [currentSection, chapterPageCounts]);
+
+    useEffect(() => {
         const scroller = scrollerRef.current;
         if (!scroller) return;
 
@@ -492,7 +500,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             const scrollPos = Math.abs(isVertical ? scroller.scrollTop : scroller.scrollLeft);
             const globalPage = Math.round(scrollPos / pageSize);
 
-            // Find current chapter based on global page
             let chapterIndex = 0;
             for (let i = chapters.length - 1; i >= 0; i--) {
                 if (chapterStartPages[i] <= globalPage) {
@@ -501,14 +508,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 }
             }
 
-            const localPage = globalPage - chapterStartPages[chapterIndex];
+            const localPage = Math.max(0, globalPage - chapterStartPages[chapterIndex]);
 
             if (chapterIndex !== currentSection || localPage !== currentPage) {
-                setCurrentPage(localPage);
                 if (chapterIndex !== currentSection) {
                     setCurrentSection(chapterIndex);
-                    setTotalPagesInChapter(chapterPageCounts[chapterIndex] || 1);
                 }
+                setCurrentPage(localPage);
 
                 const chapterEl = scroller.querySelector(`[data-chapter="${chapterIndex}"]`) as HTMLElement;
                 if (chapterEl) {
@@ -588,20 +594,22 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const goNext = useCallback(() => {
         if (!scrollerRef.current) return;
         const pageSize = measuredPageSize || (layout?.columnWidth || 0) + (layout?.gap || 80);
+        const scrollAmount = (isRTL && !isVertical) ? -pageSize : pageSize;
         scrollerRef.current.scrollBy({
-            [isVertical ? 'top' : 'left']: pageSize,
+            [isVertical ? 'top' : 'left']: scrollAmount,
             behavior: settings.lnDisableAnimations ? 'auto' : 'smooth'
         });
-    }, [measuredPageSize, layout, isVertical, settings.lnDisableAnimations]);
+    }, [measuredPageSize, layout, isVertical, isRTL, settings.lnDisableAnimations]);
 
     const goPrev = useCallback(() => {
         if (!scrollerRef.current) return;
         const pageSize = measuredPageSize || (layout?.columnWidth || 0) + (layout?.gap || 80);
+        const scrollAmount = (isRTL && !isVertical) ? pageSize : -pageSize;
         scrollerRef.current.scrollBy({
-            [isVertical ? 'top' : 'left']: -pageSize,
+            [isVertical ? 'top' : 'left']: scrollAmount,
             behavior: settings.lnDisableAnimations ? 'auto' : 'smooth'
         });
-    }, [measuredPageSize, layout, isVertical, settings.lnDisableAnimations]);
+    }, [measuredPageSize, layout, isVertical, isRTL, settings.lnDisableAnimations]);
 
     // ========================================================================
     // Touch/Click Handlers
@@ -994,6 +1002,8 @@ useEffect(() => {
                     width: '100%',
                     height: '100%',
                     scrollSnapType: isVertical ? 'y mandatory' : 'x mandatory',
+                    overflowX: isVertical ? 'hidden' : 'auto',
+                    overflowY: isVertical ? 'auto' : 'hidden',
                 }}
                 itemContent={(index, html) => (
                     <div
