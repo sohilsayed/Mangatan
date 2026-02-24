@@ -10,6 +10,9 @@ rust-version.workspace = true
 version.workspace = true
 autobins = false 
 
+[lints]
+workspace = true
+
 [package.metadata.android]
 package = "com.mangatan.app"
 build_targets = ["Arm64V8a"]
