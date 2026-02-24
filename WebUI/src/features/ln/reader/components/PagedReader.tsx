@@ -614,7 +614,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
         if (!touchStartRef.current) return;
-        if (!contentReady || isTransitioning) return;
+        if (!contentReady) return;
         if (!(settings.lnEnableSwipe ?? true)) return;
 
         const touch = touchStartRef.current;
@@ -669,7 +669,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 }
             }
         }
-    }, [contentReady, isTransitioning, isVertical, isRTL, goNext, goPrev, settings.lnEnableSwipe]);
+    }, [contentReady, isVertical, isRTL, goNext, goPrev, settings.lnEnableSwipe]);
 
     const handleContentClick = useCallback(async (e: React.MouseEvent) => {
         if (isDraggingRef.current) return;
@@ -758,7 +758,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         const handleKeyDown = (e: KeyboardEvent) => {
             const target = e.target as HTMLElement;
             if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
-            if (!contentReady || isTransitioning) return;
+            if (!contentReady) return;
             if (handleKeyNavigation(e, navOptions, navCallbacks)) {
                 e.preventDefault();
             }
@@ -766,7 +766,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [navOptions, navCallbacks, contentReady, isTransitioning]);
+    }, [navOptions, navCallbacks, contentReady]);
 
     // ========================================================================
     // EPUB Link Handler
@@ -854,7 +854,7 @@ useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
         e.preventDefault();
         
-        if (isTransitioning || !contentReady) return;
+        if (!contentReady) return;
 
         const now = Date.now();
         if (now - lastWheelTime < wheelDebounce) return;
@@ -877,7 +877,7 @@ useEffect(() => {
     return () => {
         wrapper.removeEventListener('wheel', handleWheel);
     };
-}, [goNext, goPrev, isTransitioning, contentReady]);
+}, [goNext, goPrev, contentReady]);
 
     // ========================================================================
     // Visibility Change Handler (Save on Hide)
