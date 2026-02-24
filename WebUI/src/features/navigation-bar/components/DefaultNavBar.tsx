@@ -27,6 +27,7 @@ import { useNavBarContext } from '@/features/navigation-bar/NavbarContext.tsx';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
 import { NAVIGATION_BAR_ITEMS } from '@/features/navigation-bar/NavigationBar.constants.ts';
 import { NavigationBarUtil } from '@/features/navigation-bar/NavigationBar.util.ts';
+import { useNavigationSettings } from '@/features/navigation-bar/NavigationBar.hooks.ts';
 
 export function DefaultNavBar() {
     const { title, action, override, isCollapsed, setIsCollapsed, setAppBarHeight, navBarWidth, setNavBarWidth } =
@@ -41,6 +42,7 @@ export function DefaultNavBar() {
     const {
         settings: { hideHistory },
     } = useMetadataServerSettings();
+    const { visibleTabs } = useNavigationSettings();
 
     const appBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -64,8 +66,9 @@ export function DefaultNavBar() {
                 hideBoth: false,
                 hideDesktop: isMobileWidth,
                 hideMobile: !isMobileWidth,
+                visibleTabs,
             }),
-        [isMobileWidth, hideHistory],
+        [isMobileWidth, hideHistory, visibleTabs],
     );
     const NavBarComponent = useMemo(() => (isMobileWidth ? MobileBottomBar : DesktopSideBar), [isMobileWidth]);
 

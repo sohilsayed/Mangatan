@@ -22,6 +22,7 @@ import { AppRoutes } from '@/base/AppRoute.constants.ts';
 import { useMetadataServerSettings } from '@/features/settings/services/ServerSettingsMetadata.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
 import { BrowseTab } from '@/features/browse/Browse.types.ts';
+import { useNavigationSettings } from '@/features/navigation-bar/NavigationBar.hooks.ts';
 import { LoginPage } from '@/features/authentication/screens/LoginPage.tsx';
 import { AuthGuard } from '@/features/authentication/components/AuthGuard.tsx';
 import { SearchParam } from '@/base/Base.types.ts';
@@ -198,6 +199,7 @@ const MainApp = () => {
     const {
         settings: { hideHistory },
     } = useMetadataServerSettings();
+    const { defaultStartupPage } = useNavigationSettings();
 
     return (
         <Box
@@ -224,7 +226,7 @@ const MainApp = () => {
                         {/* General Routes */}
                         <Route
                             path={AppRoutes.root.match}
-                            element={<Navigate to={AppRoutes.library.path()} replace />}
+                            element={<Navigate to={defaultStartupPage} replace />}
                         />
                         <Route
                             path={AppRoutes.matchAll.match}
