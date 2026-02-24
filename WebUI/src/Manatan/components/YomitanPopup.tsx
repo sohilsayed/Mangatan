@@ -615,7 +615,7 @@ export const YomitanPopup = () => {
                     context={dictPopup.context}
                     variant="popup"
                     popupTheme={theme}
-                    kanjiResults={currentEntry?.isKanjiOnly || processedEntries.length === 0 ? kanjiResults : []}
+                    kanjiResults={currentEntry?.isKanjiOnly || processedEntries.length === 0 || settings.yomitanShowKanjiInNormalLookup ? kanjiResults : []}
                     grouped={settings.resultGroupingMode === 'grouped'}
                 />
             </div>

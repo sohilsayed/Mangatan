@@ -168,6 +168,7 @@ export interface Settings {
     resultGroupingMode: 'grouped' | 'flat';
     yomitanLookupNavigationMode: 'tabs' | 'stacked';
     yomitanLookupMaxHistory: number;
+    yomitanShowKanjiInNormalLookup: boolean;
 
 }
 
@@ -345,6 +346,7 @@ export const DEFAULT_SETTINGS: Settings = {
     resultGroupingMode: 'grouped',
     yomitanLookupNavigationMode: 'stacked',
     yomitanLookupMaxHistory: 10,
+    yomitanShowKanjiInNormalLookup: false,
     deleteModifierKey: 'Alt',
     mergeModifierKey: 'Control',
     site: {
