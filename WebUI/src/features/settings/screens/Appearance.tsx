@@ -283,7 +283,7 @@ export const Appearance = () => {
                             onChange={(e) => setDefaultStartupPage(e.target.value as string)}
                             sx={{ minWidth: 150 }}
                         >
-                            {NAVIGATION_BAR_ITEMS.map((item) => (
+                            {NAVIGATION_BAR_ITEMS.filter(item => item.path !== AppRoutes.more.path).map((item) => (
                                 <MenuItem key={item.path} value={item.path}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <item.IconComponent fontSize="small" />
@@ -302,7 +302,7 @@ export const Appearance = () => {
                 </Typography>
 
                 <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 1, mt: 1 }}>
-                    {NAVIGATION_BAR_ITEMS.map((item) => (
+                    {NAVIGATION_BAR_ITEMS.filter(item => item.path !== AppRoutes.more.path).map((item) => (
                         <FormControlLabel
                             key={item.path}
                             control={

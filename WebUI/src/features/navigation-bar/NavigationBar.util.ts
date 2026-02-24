@@ -64,6 +64,11 @@ export class NavigationBarUtil {
         { hideBoth, hideDesktop, hideMobile, ...filter }: FilterSettings,
     ): NavbarItem[] {
         return items.filter((item) => {
+            // "More" is a special item that shouldn't be counted as a hidden item
+            if (item.path === AppRoutes.more.path) {
+                return false;
+            }
+
             // If it's explicitly restricted (like History when hideHistory is true)
             if (NavigationBarUtil.isPathRestricted(item.path, filter)) {
                 return false;

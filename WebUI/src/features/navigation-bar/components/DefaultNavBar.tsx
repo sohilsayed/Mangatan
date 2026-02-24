@@ -47,17 +47,6 @@ export function DefaultNavBar() {
 
     const appBarRef = useRef<HTMLDivElement | null>(null);
 
-    const isMainRoute = NAVIGATION_BAR_ITEMS.some(({ path, show }) => {
-        if (isMobileWidth && show === 'desktop') {
-            return false;
-        }
-
-        if (!isMobileWidth && show === 'mobile') {
-            return false;
-        }
-
-        return path === pathname;
-    });
     const actualNavBarWidth = isMobileWidth || isCollapsed ? 0 : navBarWidth;
 
     const visibleNavBarItems = useMemo(() => {
@@ -85,6 +74,12 @@ export function DefaultNavBar() {
 
         return items;
     }, [isMobileWidth, hideHistory, visibleTabs]);
+
+    const isMainRoute = useMemo(
+        () => visibleNavBarItems.some(({ path }) => path === pathname),
+        [visibleNavBarItems, pathname],
+    );
+
     const NavBarComponent = useMemo(() => (isMobileWidth ? MobileBottomBar : DesktopSideBar), [isMobileWidth]);
 
     const navBar = useMemo(
