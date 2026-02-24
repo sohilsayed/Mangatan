@@ -10,9 +10,6 @@ rust-version.workspace = true
 version.workspace = true
 autobins = false 
 
-[lints]
-workspace = true
-
 [package.metadata.android]
 package = "com.mangatan.app"
 build_targets = ["Arm64V8a"]
@@ -129,11 +126,9 @@ default = []
 native_webview = []
 
 [target.'cfg(target_os = "android")'.dependencies]
-
 android-activity = { version = "0.6", features = ["native-activity"] }
 axum.workspace = true
-# GUI
-eframe = { version = "0.29", default-features = false, features = ["wgpu", "android-native-activity" ] }
+eframe = { version = "0.29", default-features = false, features = ["wgpu", "android-native-activity"] }
 egui = "0.29"
 flate2 = { version = "1.0", default-features = false, features = ["rust_backend"] }
 futures = "0.3"
@@ -149,20 +144,17 @@ manatan-yomitan-server.workspace = true
 mime_guess = "2"
 ndk-context = "0.1"
 openssl = { version = "0.10", features = ["vendored"] }
-# Web Server & Networking
-# IMPORTANT: reqwest 0.12 uses http 1.0, matching axum 0.7
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
 serde.workspace = true
 serde_json = "1.0"
 tar = "0.4"
 tokio = { version = "1", features = ["full"] }
-
-# WebSockets
 tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"] }
 tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
-
-# System
 tracing = "0.1"
 tracing-log = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 winit = "0.30"
+
+[lints]
+workspace = true

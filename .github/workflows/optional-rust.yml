@@ -23,6 +23,18 @@ jobs:
     - name: Install NASM
       uses: ilammy/setup-nasm@v1
 
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libfontconfig1-dev libfreetype6-dev libbz2-dev
+
+    - name: Prepare Resources
+      run: |
+        make download_jar
+        make download_natives
+        mkdir -p bin/manatan/resources/webui
+        touch bin/manatan/resources/webui/index.html
+
     - name: Install cargo udeps
       run: cargo install cargo-udeps --locked
 
