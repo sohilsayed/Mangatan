@@ -223,6 +223,7 @@ export interface LookupResponse {
             dictionaryName: string;
             value: string;
         }>;
+        priority?: number;
     }>;
 }
 
