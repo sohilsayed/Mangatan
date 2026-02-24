@@ -58,4 +58,36 @@ export class NavigationBarUtil {
                 }
             });
     }
+
+    static getHiddenItems(
+        items: NavbarItem[],
+        { hideBoth, hideDesktop, hideMobile, ...filter }: FilterSettings,
+    ): NavbarItem[] {
+        return items.filter((item) => {
+            // If it's explicitly restricted (like History when hideHistory is true)
+            if (NavigationBarUtil.isPathRestricted(item.path, filter)) {
+                return false;
+            }
+
+            // If it's hidden because of visibleTabs
+            const isHiddenByVisibleTabs = filter.visibleTabs && !filter.visibleTabs.includes(item.path);
+
+            // If it's hidden because of device type
+            let isHiddenByDevice = false;
+            switch (item.show) {
+                case 'both':
+                    isHiddenByDevice = !!hideBoth;
+                    break;
+                case 'desktop':
+                    isHiddenByDevice = !!hideDesktop;
+                    break;
+                case 'mobile':
+                    isHiddenByDevice = !!hideMobile;
+                    break;
+            }
+
+            // We want items that are NOT shown in the main nav but ARE allowed to be shown (not restricted)
+            return isHiddenByVisibleTabs || isHiddenByDevice;
+        });
+    }
 }

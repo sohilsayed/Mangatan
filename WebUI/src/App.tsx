@@ -232,7 +232,7 @@ const MainApp = () => {
                             path={AppRoutes.matchAll.match}
                             element={<Navigate to={AppRoutes.root.path} replace />}
                         />
-                        {isMobileWidth && <Route path={AppRoutes.more.match} element={<More />} />}
+                        <Route path={AppRoutes.more.match} element={<More />} />
                         <Route path={AppRoutes.about.match} element={<About />} />
                         <Route path={AppRoutes.settings.match}>
                             <Route index element={<Settings />} />

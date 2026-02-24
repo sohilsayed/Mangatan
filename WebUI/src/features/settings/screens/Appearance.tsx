@@ -18,9 +18,8 @@ import {
     FormControlLabel,
     Checkbox,
     Stack,
-    IconButton,
 } from '@mui/material';
-import { useColorScheme, useTheme } from '@mui/material/styles';
+import { useColorScheme } from '@mui/material/styles';
 import { useAppThemeContext } from '@/features/theme/AppThemeContext.tsx';
 import { Select } from '@/base/components/inputs/Select.tsx';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';

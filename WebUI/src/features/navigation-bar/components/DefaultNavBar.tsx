@@ -59,17 +59,31 @@ export function DefaultNavBar() {
     });
     const actualNavBarWidth = isMobileWidth || isCollapsed ? 0 : navBarWidth;
 
-    const visibleNavBarItems = useMemo(
-        () =>
-            NavigationBarUtil.filterItems(NAVIGATION_BAR_ITEMS, {
-                hideHistory,
-                hideBoth: false,
-                hideDesktop: isMobileWidth,
-                hideMobile: !isMobileWidth,
-                visibleTabs,
-            }),
-        [isMobileWidth, hideHistory, visibleTabs],
-    );
+    const visibleNavBarItems = useMemo(() => {
+        const items = NavigationBarUtil.filterItems(NAVIGATION_BAR_ITEMS, {
+            hideHistory,
+            hideBoth: false,
+            hideDesktop: isMobileWidth,
+            hideMobile: !isMobileWidth,
+            visibleTabs,
+        });
+
+        // Ensure "More" is always available if there are hidden items
+        const hiddenItems = NavigationBarUtil.getHiddenItems(NAVIGATION_BAR_ITEMS, {
+            hideHistory,
+            hideBoth: false,
+            hideDesktop: isMobileWidth,
+            hideMobile: !isMobileWidth,
+            visibleTabs,
+        });
+
+        const moreItem = NAVIGATION_BAR_ITEMS.find((item) => item.path === AppRoutes.more.path);
+        if (hiddenItems.length > 0 && moreItem && !items.some((item) => item.path === moreItem.path)) {
+            return [...items, moreItem];
+        }
+
+        return items;
+    }, [isMobileWidth, hideHistory, visibleTabs]);
     const NavBarComponent = useMemo(() => (isMobileWidth ? MobileBottomBar : DesktopSideBar), [isMobileWidth]);
 
     const navBar = useMemo(
