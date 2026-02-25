@@ -139,6 +139,9 @@ export interface LNMetadata {
     // Language and categories
     language?: string;
     categoryIds: string[];
+
+    // New granular storage info
+    chapterFilenames?: string[];
     
     // Settings per language (synced)
     languageSettings?: Record<string, LNReaderSettings>;
@@ -276,6 +279,20 @@ export class AppStorage {
         description: 'Pre-parsed book chapters and images',
     });
 
+    // Individual chapter content (Granular Storage)
+    static readonly lnChapters = localforage.createInstance({
+        name: 'Manatan',
+        storeName: 'ln_chapters',
+        description: 'Individual chapter HTML content',
+    });
+
+    // Individual image blobs (Granular Storage)
+    static readonly lnImages = localforage.createInstance({
+        name: 'Manatan',
+        storeName: 'ln_images',
+        description: 'Individual book image blobs',
+    });
+
     // Reading progress (the bookmark)
     static readonly lnProgress = localforage.createInstance({
         name: 'Manatan',
@@ -405,18 +422,59 @@ export class AppStorage {
         await this.lnContent.setItem(bookId, content);
     }
 
+    // --- Granular Storage Methods ---
+
+    static async saveChapter(bookId: string, chapterIndex: number, html: string): Promise<void> {
+        const key = `${bookId}_ch${chapterIndex}`;
+        await this.lnChapters.setItem(key, html);
+    }
+
+    static async getChapter(bookId: string, chapterIndex: number): Promise<string | null> {
+        const key = `${bookId}_ch${chapterIndex}`;
+        try {
+            return await this.lnChapters.getItem<string>(key);
+        } catch {
+            return null;
+        }
+    }
+
+    static async saveImage(bookId: string, path: string, blob: Blob): Promise<void> {
+        const key = `${bookId}_img_${path}`;
+        await this.lnImages.setItem(key, blob);
+    }
+
+    static async getImage(bookId: string, path: string): Promise<Blob | null> {
+        const key = `${bookId}_img_${path}`;
+        try {
+            return await this.lnImages.getItem<Blob>(key);
+        } catch {
+            return null;
+        }
+    }
+
     // ========================================================================
     // Delete Methods
     // ========================================================================
 
     static async deleteLnData(bookId: string): Promise<void> {
+        // Find and delete all granular chapters and images
+        const [chapterKeys, imageKeys] = await Promise.all([
+            this.lnChapters.keys(),
+            this.lnImages.keys(),
+        ]);
+
+        const bookChapterKeys = chapterKeys.filter(k => k.startsWith(`${bookId}_ch`));
+        const bookImageKeys = imageKeys.filter(k => k.startsWith(`${bookId}_img_`));
+
         await Promise.all([
             this.files.removeItem(bookId),
             this.lnMetadata.removeItem(bookId),
             this.lnContent.removeItem(bookId),
             this.lnProgress.removeItem(bookId),
+            ...bookChapterKeys.map(k => this.lnChapters.removeItem(k)),
+            ...bookImageKeys.map(k => this.lnImages.removeItem(k)),
         ]);
-        console.log('[AppStorage] All data deleted for:', bookId);
+        console.log('[AppStorage] All data (including granular) deleted for:', bookId);
     }
 
     static async deleteLnProgress(bookId: string): Promise<void> {

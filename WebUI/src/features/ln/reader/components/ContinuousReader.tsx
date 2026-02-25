@@ -184,7 +184,9 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // ========================================================================
 
     const { loadChaptersAround, getChapterHtml, loadingState, loadChapter } = useChapterLoader({
-        chapters,
+        bookId,
+        chapterCount: chapters.length,
+        highlights,
         preloadCount: 3,
     });
 

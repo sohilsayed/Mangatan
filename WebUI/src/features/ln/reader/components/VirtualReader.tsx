@@ -134,19 +134,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     const isVertical = settings.lnReadingDirection?.includes('vertical');
     const isRTL = settings.lnReadingDirection === 'vertical-rtl';
 
-    const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
-        return highlights?.filter(h => h.chapterIndex === chapterIndex) ?? [];
-    }, [highlights]);
-
-    const chaptersWithHighlights = useMemo(() => {
-        return items.map((html, index) => {
-            const chapterHighlights = getHighlightsForChapter(index);
-            if (chapterHighlights.length === 0) {
-                return html;
-            }
-            return injectHighlightsIntoHtml(html, chapterHighlights);
-        });
-    }, [items, highlights, getHighlightsForChapter]);
+    // Removed upfront highlight injection - now handled lazily by useChapterLoader
 
 
     const handlePositionUpdate = useCallback(
@@ -284,7 +272,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
     const commonProps = {
         bookId,
-        chapters: chaptersWithHighlights,
+        chapters: items, // Pass raw items, highlights will be injected lazily
         stats,
         settings,
         isVertical: !!isVertical,

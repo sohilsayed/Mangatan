@@ -641,9 +641,28 @@ export const LNLibrary: React.FC = () => {
                         setLibrary(prev => prev.filter(item => item.id !== duplicateByMetadata.id));
                     }
 
+                    // Granular storage saving
+                    const { chapters, imageBlobs } = result.content;
+
+                    // Save chapters one by one
+                    for (let i = 0; i < chapters.length; i++) {
+                        await AppStorage.saveChapter(bookId, i, chapters[i]);
+                    }
+
+                    // Save images one by one
+                    for (const [path, blob] of Object.entries(imageBlobs)) {
+                        await AppStorage.saveImage(bookId, path, blob);
+                    }
+
                     await Promise.all([
                         AppStorage.files.setItem(bookId, file),
-                        AppStorage.lnMetadata.setItem(bookId, result.metadata),
+                        AppStorage.lnMetadata.setItem(bookId, {
+                            ...result.metadata,
+                            // Store filenames in metadata for easier access
+                            chapterFilenames: result.content.chapterFilenames,
+                        } as any),
+                        // Still save to lnContent for backwards compatibility fallback if needed,
+                        // but it's now redundant and we'll eventually phase it out.
                         AppStorage.lnContent.setItem(bookId, result.content),
                     ]);
 

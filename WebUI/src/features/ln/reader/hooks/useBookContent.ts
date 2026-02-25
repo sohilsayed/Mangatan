@@ -17,14 +17,10 @@ interface UseBookContentReturn {
 }
 
 
-const blobUrlCache = new Map<string, Map<string, string>>();
-
 export function useBookContent(bookId: string | undefined): UseBookContentReturn {
     const [content, setContent] = useState<BookContent | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
-    const objectUrlsRef = useRef<string[]>([]);
 
     useEffect(() => {
         if (!bookId) {
@@ -39,80 +35,27 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
             setError(null);
 
             try {
-
-                const [metadata, parsedBook] = await Promise.all([
-                    AppStorage.getLnMetadata(bookId),
-                    AppStorage.getLnContent(bookId),
-                ]);
+                // Now only load metadata.
+                // Chapters and images will be loaded lazily via useChapterLoader.
+                const metadata = await AppStorage.getLnMetadata(bookId);
 
                 if (cancelled) return;
 
-                if (!metadata || !parsedBook) {
-                    setError('Book not found. It may need to be re-imported.');
+                if (!metadata) {
+                    setError('Book metadata not found. It may need to be re-imported.');
                     setIsLoading(false);
                     return;
                 }
 
-
-                let bookBlobUrls = blobUrlCache.get(bookId);
-
-                if (!bookBlobUrls) {
-
-                    bookBlobUrls = new Map<string, string>();
-
-                    for (const [path, blob] of Object.entries(parsedBook.imageBlobs)) {
-                        const url = URL.createObjectURL(blob);
-                        bookBlobUrls.set(path, url);
-                        objectUrlsRef.current.push(url);
-                    }
-
-                    blobUrlCache.set(bookId, bookBlobUrls);
-                }
-
-
-                const processedChapters = parsedBook.chapters.map((html) => {
-                    return html.replace(/data-epub-src="([^"]+)"/g, (match, path) => {
-
-                        let blobUrl = bookBlobUrls!.get(path);
-
-
-                        if (!blobUrl) {
-                            blobUrl = bookBlobUrls!.get('/' + path);
-                        }
-
-                        if (!blobUrl) {
-                            blobUrl = bookBlobUrls!.get(path.replace(/^\//, ''));
-                        }
-
-
-                        if (!blobUrl) {
-                            const filename = path.split('/').pop() || '';
-                            for (const [storedPath, url] of bookBlobUrls!.entries()) {
-                                if (storedPath.endsWith('/' + filename) || storedPath === filename) {
-                                    blobUrl = url;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (blobUrl) {
-                            console.log(`[useBookContent] Resolved image: ${path} -> ${blobUrl.substring(0, 30)}...`);
-                            return `src="${blobUrl}" href="${blobUrl}" xlink:href="${blobUrl}" data-epub-src="${path}"`;
-                        }
-
-                        console.warn(`[useBookContent] Failed to resolve image path: ${path} in book ${bookId}`);
-                        console.log('[useBookContent] Available paths:', Array.from(bookBlobUrls!.keys()));
-                        return match;
-                    });
-                });
-
-                if (cancelled) return;
+                // If granular storage is missing (old book), we can still load from lnContent as fallback
+                let chapterFilenames = metadata.chapterFilenames || [];
+                let initialChapters = new Array(metadata.chapterCount).fill('');
 
                 setContent({
-                    chapters: processedChapters,
+                    chapters: initialChapters,
                     stats: metadata.stats,
                     metadata,
-                    chapterFilenames: parsedBook.chapterFilenames || [],
+                    chapterFilenames: chapterFilenames,
                 });
                 setIsLoading(false);
 
@@ -138,17 +81,10 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
 
 
 export function clearBookCache(bookId: string): void {
-    const cache = blobUrlCache.get(bookId);
-    if (cache) {
-        cache.forEach((url) => URL.revokeObjectURL(url));
-        blobUrlCache.delete(bookId);
-    }
+    // No-op for now, revocation is handled in useChapterLoader
 }
 
 
 export function clearAllBookCaches(): void {
-    blobUrlCache.forEach((cache) => {
-        cache.forEach((url) => URL.revokeObjectURL(url));
-    });
-    blobUrlCache.clear();
+    // No-op
 }

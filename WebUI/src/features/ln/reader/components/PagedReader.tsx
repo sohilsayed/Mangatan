@@ -16,10 +16,11 @@ import { SelectionHandles } from './SelectionHandles';
 import { buildTypographyStyles } from '../utils/styles';
 import { handleKeyNavigation, NavigationCallbacks } from '../utils/navigation';
 import { PagedReaderProps } from '../types/reader';
-import { detectVisibleBlockPaged, restoreToBlockPaged } from '../utils/pagedPosition';
+import { detectVisibleBlockPaged } from '../utils/pagedPosition';
 import { extractContextSnippet } from '../utils/blockPosition';
 import { getReaderTheme } from '../utils/themes';
 import { useTextLookup } from '../hooks/useTextLookup';
+import { useChapterLoader } from '../hooks/useChapterLoader';
 import {
     SaveablePosition,
     calculateProgress,
@@ -284,11 +285,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         };
     }, [dimensions, settings.lnPageMargin, isVertical, safeAreaTopOffsetPx]);
 
-    const currentHtml = useMemo(
-        () => chapters[currentSection] || '',
-        [chapters, currentSection]
-    );
-
     const isKorean = useMemo(() => {
         if (stats?.language === 'ko') return true;
 
@@ -303,6 +299,24 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         () => buildTypographyStyles(settings, isVertical),
         [settings, isVertical]
     );
+
+    // ========================================================================
+    // Chapter Loader
+    // ========================================================================
+
+    const { loadChaptersAround, getChapterHtml, loadingState } = useChapterLoader({
+        bookId,
+        chapterCount: chapters.length,
+        highlights,
+        preloadCount: 1, // Only need current and next/prev for paged
+    });
+
+    useEffect(() => {
+        loadChaptersAround(currentSection);
+    }, [currentSection, loadChaptersAround]);
+
+    const currentHtml = getChapterHtml(currentSection);
+    const isChapterLoading = loadingState.get(currentSection);
 
     // Memoized transform - only recalculate when page actually changes
     const transform = useMemo(() => {
@@ -1192,17 +1206,18 @@ useEffect(() => {
                     className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
                     lang={isKorean ? "ko" : undefined}
                     style={contentStyle}
-                    dangerouslySetInnerHTML={{ __html: currentHtml }}
+                    dangerouslySetInnerHTML={{ __html: currentHtml || '' }}
                 />
             </div>
 
             {/* Loading Overlay */}
-            {(!contentReady || isTransitioning) && (
+            {(!contentReady || isTransitioning || isChapterLoading) && (
                 <div
                     className="paged-loading"
                     style={{ backgroundColor: theme.bg, color: theme.fg }}
                 >
                     <div className="loading-spinner" />
+                    {isChapterLoading && <div style={{ marginTop: 10 }}>Loading Chapter {currentSection + 1}...</div>}
                 </div>
             )}
 
