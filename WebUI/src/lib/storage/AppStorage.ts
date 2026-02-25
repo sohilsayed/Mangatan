@@ -142,6 +142,7 @@ export interface LNMetadata {
 
     // New granular storage info
     chapterFilenames?: string[];
+    chapterCount?: number;
     
     // Settings per language (synced)
     languageSettings?: Record<string, LNReaderSettings>;

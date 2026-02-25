@@ -195,16 +195,9 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     }, [initialChapter, loadChaptersAround]);
 
     useEffect(() => {
-        const checkLoaded = () => {
-            const loaded = chapters.some((_, i) => getChapterHtml(i) !== null);
-            if (loaded && !contentLoaded) {
-                setContentLoaded(true);
-            }
-        };
-
-        checkLoaded();
-        const timer = setInterval(checkLoaded, 100);
-        return () => clearInterval(timer);
+        if (!contentLoaded && chapters.some((_, i) => getChapterHtml(i) !== null)) {
+            setContentLoaded(true);
+        }
     }, [chapters, getChapterHtml, contentLoaded]);
 
     // ========================================================================
@@ -344,6 +337,38 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     }, [calculatePositionFromBlock, currentChapter, loadChaptersAround]);
 
     // ========================================================================
+    // Chapter Tracker (for virtualization window management)
+    // ========================================================================
+
+    useEffect(() => {
+        const container = containerRef.current;
+        if (!container || !contentLoaded) return;
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                for (const entry of entries) {
+                    if (entry.isIntersecting) {
+                        const chapterIndex = parseInt(entry.target.getAttribute('data-chapter') || '-1', 10);
+                        if (chapterIndex !== -1 && Math.abs(chapterIndex - currentChapter) > 2) {
+                            setCurrentChapter(chapterIndex);
+                            loadChaptersAround(chapterIndex);
+                        }
+                    }
+                }
+            },
+            {
+                root: container,
+                threshold: 0.1,
+            }
+        );
+
+        const chapterEls = container.querySelectorAll('[data-chapter]');
+        chapterEls.forEach((el) => observer.observe(el));
+
+        return () => observer.disconnect();
+    }, [contentLoaded, currentChapter, loadChaptersAround]);
+
+    // ========================================================================
     // Block Tracker Setup
     // ========================================================================
 
@@ -376,7 +401,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             blockTrackerRef.current?.stop();
             blockTrackerRef.current = null;
         };
-    }, [contentLoaded, stats, isVertical, handleActiveBlockChange, restorationComplete]);
+    }, [contentLoaded, stats, isVertical, handleActiveBlockChange, restorationComplete, currentChapter]);
 
     // ========================================================================
     // Scroll Handler
@@ -925,16 +950,42 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                     className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
                     style={contentStyle}
                 >
-                    {chapters.map((_, index) => (
-                        <ChapterBlock
-                            key={index}
-                            html={getChapterHtml(index)}
-                            index={index}
-                            isLoading={loadingState.get(index) || false}
-                            isVertical={isVertical}
-                            settings={settings}
-                        />
-                    ))}
+                    {chapters.map((_, index) => {
+                        // Manual windowing for performance
+                        const isVisible = Math.abs(index - currentChapter) <= 5;
+
+                        if (!isVisible) {
+                            // Render a simple placeholder with estimated size to keep scrollbar stable
+                            const charCount = stats?.chapterLengths[index] || 1000;
+                            // Rough estimation: 1000 chars ~ 800px high (horizontal) or wide (vertical)
+                            const estimatedSize = Math.max(200, (charCount / 1.25));
+
+                            return (
+                                <div
+                                    key={index}
+                                    data-chapter={index}
+                                    style={{
+                                        [isVertical ? 'minWidth' : 'minHeight']: `${estimatedSize}px`,
+                                        [isVertical ? 'height' : 'width']: '100%',
+                                        display: isVertical ? 'inline-block' : 'block',
+                                        contentVisibility: 'auto',
+                                        containIntrinsicSize: `${isVertical ? `${estimatedSize}px 1000px` : `1000px ${estimatedSize}px`}`,
+                                    }}
+                                />
+                            );
+                        }
+
+                        return (
+                            <ChapterBlock
+                                key={index}
+                                html={getChapterHtml(index)}
+                                index={index}
+                                isLoading={loadingState.get(index) || false}
+                                isVertical={isVertical}
+                                settings={settings}
+                            />
+                        );
+                    })}
                 </div>
             </div>
 

@@ -427,6 +427,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         let cancelled = false;
 
         const calculatePages = async () => {
+            if (!currentHtml) return;
             setContentReady(false);
 
             const content = contentRef.current;
@@ -529,7 +530,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             return;
         }
 
-        if (!contentReady || !viewportRef.current || !stats) return;
+        if (!contentReady || !viewportRef.current || !stats || !currentHtml) return;
 
         const pageSize = measuredPageSize > 0
             ? measuredPageSize
@@ -604,6 +605,11 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         });
 
     }, [contentReady, stats, measuredPageSize, layout, currentPage, currentSection, isVertical]);
+
+    // Reset contentReady when switching chapters
+    useEffect(() => {
+        setContentReady(false);
+    }, [currentSection]);
 
     // Detect position after page/chapter changes
     useEffect(() => {

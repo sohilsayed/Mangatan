@@ -68,6 +68,8 @@
 
 .chapter-block {
     box-sizing: border-box;
+    content-visibility: auto;
+    contain-intrinsic-size: 1000px;
 }
 
 .chapter-block.horizontal {
