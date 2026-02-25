@@ -303,16 +303,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const currentHtml = getChapterHtml(currentSection);
     const isChapterLoading = loadingState.get(currentSection);
 
-    const isKorean = useMemo(() => {
-        if (stats?.language === 'ko') return true;
-
-        const koreanFonts = ['KR', 'Malgun', 'Nanum', 'Gothic', 'Noto Sans CJK KR'];
-        if (koreanFonts.some(f => settings.lnFontFamily?.includes(f))) return true;
-
-        const sample = currentHtml?.slice(0, 2000) || '';
-        return /[\uAC00-\uD7A3]/.test(sample);
-    }, [stats?.language, settings.lnFontFamily, currentHtml]);
-
     const typographyStyles = useMemo(
         () => buildTypographyStyles(settings, isVertical),
         [settings, isVertical]
@@ -1204,7 +1194,6 @@ useEffect(() => {
                 <div
                     ref={contentRef}
                     className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
-                    lang={isKorean ? "ko" : undefined}
                     style={contentStyle}
                     dangerouslySetInnerHTML={{ __html: currentHtml || '' }}
                 />
