@@ -607,6 +607,44 @@ export class AppStorage {
             let needsUpdate = false;
             const migrated = { ...metadata };
 
+            // Check if granular storage is missing for this book
+            const isMigrated = migrated.chapterCount !== undefined && migrated.chapterFilenames !== undefined;
+            if (!isMigrated) {
+                const firstChapter = await this.getChapter(key as string, 0);
+                if (firstChapter === null) {
+                    console.log(`[Migration] Migrating book ${key} to granular storage...`);
+                    try {
+                        const content = await this.getLnContent(key as string);
+                        if (content && content.chapters.length > 0) {
+                            // Save chapters
+                            for (let i = 0; i < content.chapters.length; i++) {
+                                await this.saveChapter(key as string, i, content.chapters[i]);
+                            }
+                            // Save images
+                            for (const [path, blob] of Object.entries(content.imageBlobs)) {
+                                await this.saveImage(key as string, path, blob);
+                            }
+                            // Update metadata with filenames and count
+                            migrated.chapterFilenames = content.chapterFilenames || [];
+                            migrated.chapterCount = content.chapters.length;
+                            needsUpdate = true;
+                            console.log(`[Migration] Book ${key} migrated successfully.`);
+                        }
+                    } catch (err) {
+                        console.error(`[Migration] Failed to migrate book ${key}:`, err);
+                    }
+                } else {
+                    // It has granular data but metadata is missing info (perhaps interrupted migration?)
+                    // Let's at least ensure chapterCount is set if we can
+                    if (migrated.chapterCount === undefined) {
+                        const keys = await this.lnChapters.keys();
+                        const bookChapters = keys.filter(k => k.startsWith(`${key}_ch`));
+                        migrated.chapterCount = bookChapters.length;
+                        needsUpdate = true;
+                    }
+                }
+            }
+
             // Migrate language field
             if (migrated.language === undefined) {
                 migrated.language = 'unknown';

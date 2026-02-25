@@ -35,6 +35,11 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
             setError(null);
 
             try {
+                // Ensure metadata is migrated (includes splitting monolithic storage)
+                await AppStorage.migrateLnMetadata();
+
+                if (cancelled) return;
+
                 // Now only load metadata.
                 // Chapters and images will be loaded lazily via useChapterLoader.
                 const metadata = await AppStorage.getLnMetadata(bookId);
