@@ -140,8 +140,8 @@ export interface SyncPayload {
     lnMetadata: Record<string, LNMetadata>;
     lnContent?: Record<string, LNParsedBook>;
     lnFiles?: Record<string, string>;
-    lnCategories?: Record<string, LnCategory>;
-    lnCategoryMetadata?: Record<string, LnCategoryMetadata>;
+    lnCategories: Record<string, LnCategory>;
+    lnCategoryMetadata: Record<string, LnCategoryMetadata>;
     deletedBookIds?: string[];
     deletedFileRefs?: FileReference[];
 }

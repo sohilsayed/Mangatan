@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 use std::fs;
-use anyhow::{Context, Result};
+use anyhow::Result;
 use crate::ln_server::types::*;
 use std::collections::HashMap;
 
@@ -60,7 +60,7 @@ impl LnStorage {
         Ok(())
     }
 
-    pub fn save_book(&self, metadata: &LNMetadata, chapters: &[String], images: &HashMap<String, Vec<u8>>) -> Result<()> {
+    pub fn save_book(&self, metadata: &LNMetadata, chapters: &[String], images: &HashMap<String, Vec<u8>>, epub_data: Option<&[u8]>) -> Result<()> {
         let book_dir = self.books_path().join(&metadata.id);
         fs::create_dir_all(&book_dir)?;
         fs::create_dir_all(book_dir.join("chapters"))?;
@@ -78,7 +78,6 @@ impl LnStorage {
 
         // Save images
         for (name, data) in images {
-            // We should be careful about subdirectories in image names
             let image_path = book_dir.join("images").join(name);
             if let Some(parent) = image_path.parent() {
                 fs::create_dir_all(parent)?;
@@ -86,6 +85,51 @@ impl LnStorage {
             fs::write(image_path, data)?;
         }
 
+        // Save raw EPUB if provided
+        if let Some(data) = epub_data {
+            fs::write(book_dir.join("book.epub"), data)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn get_book_file(&self, book_id: &str) -> Result<Vec<u8>> {
+        let path = self.books_path().join(book_id).join("book.epub");
+        fs::read(path).map_err(anyhow::Error::from)
+    }
+
+    pub fn get_book_content(&self, book_id: &str) -> Result<LNParsedBook> {
+        let metadata = self.get_book_metadata(book_id)?;
+        let mut chapters = Vec::new();
+        for i in 0..metadata.chapter_count {
+            chapters.push(self.get_chapter(book_id, i)?);
+        }
+
+        let mut image_blobs = HashMap::new();
+        let images_dir = self.books_path().join(book_id).join("images");
+        if images_dir.exists() {
+            self.collect_images(&images_dir, &images_dir, &mut image_blobs)?;
+        }
+
+        Ok(LNParsedBook {
+            chapters,
+            image_blobs,
+            chapter_filenames: Vec::new(), // We don't really use this anymore
+        })
+    }
+
+    fn collect_images(&self, base: &Path, current: &Path, results: &mut HashMap<String, String>) -> Result<()> {
+        for entry in fs::read_dir(current)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                self.collect_images(base, &path, results)?;
+            } else {
+                let relative = path.strip_prefix(base)?.to_string_lossy().to_string().replace('\\', "/");
+                let data = fs::read(path)?;
+                results.insert(relative, base64::engine::general_purpose::STANDARD.encode(data));
+            }
+        }
         Ok(())
     }
 
@@ -162,7 +206,7 @@ impl LnStorage {
     }
 
     pub fn list_categories(&self) -> Result<Vec<LNCategory>> {
-        let mut categories = Vec::new();
+        let mut categories: Vec<LNCategory> = Vec::new();
         let path = self.categories_path().join("categories.json");
         if path.exists() {
             let content = fs::read_to_string(path)?;
@@ -195,7 +239,7 @@ impl LnStorage {
     }
 
     pub fn list_category_metadata(&self) -> Result<HashMap<String, LNCategoryMetadata>> {
-        let mut results = HashMap::new();
+        let mut results: HashMap<String, LNCategoryMetadata> = HashMap::new();
         if let Ok(entries) = fs::read_dir(self.categories_path()) {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().to_string();

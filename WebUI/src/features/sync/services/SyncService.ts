@@ -162,6 +162,10 @@ export class SyncService {
             for (let metadata of allMetadata) {
                 const key = metadata.id;
                 if (metadata) {
+                    // Pre-fill fields that might be missing from server metadata
+                    metadata.categoryIds = metadata.categoryIds || (metadata as any).category_ids || [];
+                    metadata.languageSettings = metadata.languageSettings || (metadata as any).language_settings || {};
+
                     let needsMigration = false;
                     
                     // Check if migration is needed (snake_case format OR wrong blockMaps format)
@@ -252,12 +256,12 @@ export class SyncService {
             console.log('[SYNC] ' + contentMsg);
             onProgress?.({ phase: 'collecting', message: contentMsg });
             payload.lnContent = {};
-            const contentKeys = await AppStorage.lnContent.keys();
-            console.log('[SYNC] Found %d content entries', contentKeys.length);
+            const allMetadata = await AppStorage.getAllLnMetadata();
+            console.log('[SYNC] Found %d content entries to potentially collect', allMetadata.length);
             
-            for (let i = 0; i < contentKeys.length; i++) {
-                const key = contentKeys[i];
-                let content = await AppStorage.lnContent.getItem<any>(key);
+            for (let i = 0; i < allMetadata.length; i++) {
+                const key = allMetadata[i].id;
+                let content = await AppStorage.getLnContentFromServer(key);
                 
                 if (content) {
                     let needsMigration = false;
@@ -311,12 +315,12 @@ export class SyncService {
             console.log('[SYNC] ' + filesMsg);
             onProgress?.({ phase: 'collecting', message: filesMsg });
             payload.lnFiles = {};
-            const fileKeys = await AppStorage.files.keys();
-            console.log('[SYNC] Found %d files', fileKeys.length);
+            const allMetadata = await AppStorage.getAllLnMetadata();
+            console.log('[SYNC] Found %d potential files', allMetadata.length);
 
-            for (let i = 0; i < fileKeys.length; i++) {
-                const key = fileKeys[i];
-                const file = await AppStorage.files.getItem<Blob>(key);
+            for (let i = 0; i < allMetadata.length; i++) {
+                const key = allMetadata[i].id;
+                const file = await AppStorage.getLnFile(key);
                 
                 if (file) {
                     payload.lnFiles[key] = await this.blobToBase64(file);

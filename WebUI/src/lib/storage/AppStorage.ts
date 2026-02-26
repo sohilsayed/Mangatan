@@ -453,6 +453,30 @@ export class AppStorage {
         await this.lnContent.setItem(bookId, content);
     }
 
+    static async getLnFile(bookId: string): Promise<Blob | null> {
+        try {
+            const response = await requestManager.getClient().fetcher(`/api/v1/ln/${bookId}/file`);
+            if (response.ok) {
+                return await response.blob();
+            }
+        } catch (e) {
+            console.error(`[AppStorage] Failed to fetch file for ${bookId}:`, e);
+        }
+        return await this.files.getItem<Blob>(bookId);
+    }
+
+    static async getLnContentFromServer(bookId: string): Promise<LNParsedBook | null> {
+        try {
+            const response = await requestManager.getClient().fetcher(`/api/v1/ln/${bookId}/content`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.error(`[AppStorage] Failed to fetch content for ${bookId}:`, e);
+        }
+        return await this.getLnContent(bookId);
+    }
+
     // ========================================================================
     // Delete Methods
     // ========================================================================

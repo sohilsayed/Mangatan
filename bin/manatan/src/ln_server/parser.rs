@@ -19,7 +19,8 @@ impl EpubParser {
 
         // 1. Find OPF path
         let opf_path = Self::get_opf_path(&mut archive)?;
-        let opf_content = Self::read_zip_file(&mut archive, &opf_path)?;
+        let opf_content_bytes = Self::read_zip_file(&mut archive, &opf_path)?;
+        let opf_content = String::from_utf8_lossy(&opf_content_bytes);
 
         // 2. Parse OPF
         let (metadata_raw, manifest, spine) = Self::parse_opf(&opf_content)?;
@@ -93,6 +94,7 @@ impl EpubParser {
             toc,
             language,
             category_ids: Vec::new(),
+            language_settings: HashMap::new(),
         };
 
         Ok((metadata, chapters, images))
@@ -123,9 +125,15 @@ impl EpubParser {
     }
 
     fn read_zip_file<R: Read + std::io::Seek>(archive: &mut ZipArchive<R>, path: &str) -> Result<Vec<u8>> {
-        let mut file = archive.by_name(path).or_else(|_| {
+        let mut found_name = None;
+        {
+            if let Ok(_) = archive.by_name(path) {
+                found_name = Some(path.to_string());
+            }
+        }
+
+        if found_name.is_none() {
             let path_lower = path.to_lowercase();
-            let mut found_name = None;
             for i in 0..archive.len() {
                 if let Ok(f) = archive.by_index(i) {
                     if f.name().to_lowercase() == path_lower {
@@ -134,15 +142,16 @@ impl EpubParser {
                     }
                 }
             }
-            if let Some(name) = found_name {
-                archive.by_name(&name).map_err(anyhow::Error::from)
-            } else {
-                Err(anyhow!("File not found: {}", path))
-            }
-        })?;
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf)?;
-        Ok(buf)
+        }
+
+        if let Some(name) = found_name {
+            let mut file = archive.by_name(&name)?;
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf)?;
+            Ok(buf)
+        } else {
+            Err(anyhow!("File not found: {}", path))
+        }
     }
 
     fn parse_opf(content: &str) -> Result<(HashMap<String, String>, HashMap<String, (String, String)>, Vec<String>)> {
@@ -268,8 +277,8 @@ impl EpubParser {
         let mut total_chars = 0;
 
         // 1. Process images and add block IDs
-        for edge in document.inclusive_descendants() {
-            if let Some(element) = edge.as_element() {
+        for node in document.inclusive_descendants() {
+            if let Some(element) = node.as_element() {
                 let name = element.name.local.as_ref();
 
                 // Add block ID to common block elements
@@ -277,7 +286,7 @@ impl EpubParser {
                 if is_block {
                     // Simple check to avoid nested block IDs
                     let mut has_block_parent = false;
-                    let mut current = element.as_node().parent();
+                    let mut current = node.parent();
                     while let Some(parent) = current {
                         if let Some(parent_el) = parent.as_element() {
                             let p_name = parent_el.name.local.as_ref();
@@ -293,9 +302,8 @@ impl EpubParser {
                         let block_id = format!("ch{}-b{}", ch_idx, block_count);
                         element.attributes.borrow_mut().insert("data-block-id", block_id.clone());
 
-                        let text = element.as_node().text_contents();
-                        let clean_text: String = text.chars().filter(|c| !c.is_whitespace()).collect();
-                        let char_count = clean_text.chars().count();
+                        let text = node.text_contents();
+                        let char_count = text.chars().filter(|c| !c.is_whitespace()).count();
 
                         block_map.push(BlockIndexMap {
                             block_id,

@@ -11,7 +11,6 @@ use crate::ln_server::types::*;
 use crate::ln_server::storage::LnStorage;
 use crate::ln_server::parser::EpubParser;
 use crate::ln_server::search::LnSearch;
-use anyhow::Result;
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -27,6 +26,8 @@ pub fn create_router(data_dir: PathBuf) -> Router {
     Router::new()
         .route("/api/v1/ln", get(list_books))
         .route("/api/v1/ln/:id", get(get_book).put(update_book).delete(delete_book))
+        .route("/api/v1/ln/:id/file", get(get_book_file))
+        .route("/api/v1/ln/:id/content", get(get_book_content))
         .route("/api/v1/ln/import", post(import_book))
         .route("/api/v1/ln/import-from-path", post(import_from_path))
         .route("/api/v1/ln/:id/chapters", get(get_chapters))
@@ -120,17 +121,18 @@ async fn import_book(State(state): State<LnState>, mut multipart: Multipart) -> 
         };
 
         match EpubParser::parse(&data, &book_id) {
-            Ok((metadata, chapters, images)) => {
-                if let Err(e) = state.storage.save_book(&metadata, &chapters, &images) {
-                    return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+                    Ok((metadata, chapters, images)) => {
+                        if let Err(e) = state.storage.save_book(&metadata, &chapters, &images, Some(&data)) {
+                            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
+                        }
+                        return Json(metadata).into_response();
+                    }
+                    Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
                 }
-                return Json(metadata).into_response();
             }
-            Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
         }
-    } else {
-        StatusCode::BAD_REQUEST.into_response()
     }
+    StatusCode::BAD_REQUEST.into_response()
 }
 
 #[derive(Deserialize)]
@@ -146,7 +148,7 @@ async fn import_from_path(State(state): State<LnState>, Json(req): Json<ImportFr
     let book_id = uuid::Uuid::new_v4().to_string();
     match EpubParser::parse(&data, &book_id) {
         Ok((metadata, chapters, images)) => {
-            if let Err(e) = state.storage.save_book(&metadata, &chapters, &images) {
+            if let Err(e) = state.storage.save_book(&metadata, &chapters, &images, Some(&data)) {
                 return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
             }
             Json(metadata).into_response()
@@ -190,6 +192,20 @@ async fn get_progress(State(state): State<LnState>, Path(id): Path<String>) -> i
         Ok(Some(progress)) => Json(progress).into_response(),
         Ok(None) => StatusCode::NOT_FOUND.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn get_book_file(State(state): State<LnState>, Path(id): Path<String>) -> impl IntoResponse {
+    match state.storage.get_book_file(&id) {
+        Ok(data) => ([(axum::http::header::CONTENT_TYPE, "application/epub+zip")], data).into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
+    }
+}
+
+async fn get_book_content(State(state): State<LnState>, Path(id): Path<String>) -> impl IntoResponse {
+    match state.storage.get_book_content(&id) {
+        Ok(content) => Json(content).into_response(),
+        Err(_) => StatusCode::NOT_FOUND.into_response(),
     }
 }
 

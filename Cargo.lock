@@ -3687,7 +3687,6 @@ dependencies = [
  "ammonia",
  "anyhow",
  "axum",
- "base64",
  "clap",
  "directories",
  "eframe 0.33.3",
@@ -3710,14 +3709,12 @@ dependencies = [
  "rust-embed",
  "self_update",
  "serde",
- "serde_json",
  "tempfile",
  "tokio",
  "tokio-tungstenite 0.28.0",
  "tower-http 0.6.8",
  "tracing",
  "tracing-subscriber",
- "uuid",
  "zip 6.0.0",
 ]
 
