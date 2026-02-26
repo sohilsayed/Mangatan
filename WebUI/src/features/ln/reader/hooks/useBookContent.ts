@@ -39,70 +39,36 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
             setError(null);
 
             try {
-
-                const [metadata, parsedBook] = await Promise.all([
-                    AppStorage.getLnMetadata(bookId),
-                    AppStorage.getLnContent(bookId),
-                ]);
-
+                const metadata = await AppStorage.getLnMetadata(bookId);
                 if (cancelled) return;
 
-                if (!metadata || !parsedBook) {
+                if (!metadata) {
                     setError('Book not found. It may need to be re-imported.');
                     setIsLoading(false);
                     return;
                 }
 
+                // Optimization: Fetch all chapters in parallel from server
+                const chapterCount = metadata.chapterCount || metadata.chapter_count || 0;
+                const chapterIndices = Array.from({ length: chapterCount }, (_, i) => i);
 
-                let bookBlobUrls = blobUrlCache.get(bookId);
+                const chapters = await Promise.all(
+                    chapterIndices.map(async (index) => {
+                        try {
+                            return await requestManager.getLnChapterContent(bookId, index);
+                        } catch (e) {
+                            console.error(`Failed to load chapter ${index}:`, e);
+                            return `<p>Error loading chapter ${index}</p>`;
+                        }
+                    })
+                );
 
-                if (!bookBlobUrls) {
+                if (cancelled) return;
 
-                    bookBlobUrls = new Map<string, string>();
-
-                    for (const [path, blob] of Object.entries(parsedBook.imageBlobs)) {
-                        const url = URL.createObjectURL(blob);
-                        bookBlobUrls.set(path, url);
-                        objectUrlsRef.current.push(url);
-                    }
-
-                    blobUrlCache.set(bookId, bookBlobUrls);
-                }
-
-
-                const processedChapters = parsedBook.chapters.map((html) => {
+                const processedChapters = chapters.map((html) => {
                     return html.replace(/data-epub-src="([^"]+)"/g, (match, path) => {
-
-                        let blobUrl = bookBlobUrls!.get(path);
-
-
-                        if (!blobUrl) {
-                            blobUrl = bookBlobUrls!.get('/' + path);
-                        }
-
-                        if (!blobUrl) {
-                            blobUrl = bookBlobUrls!.get(path.replace(/^\//, ''));
-                        }
-
-
-                        if (!blobUrl) {
-                            const filename = path.split('/').pop() || '';
-                            for (const [storedPath, url] of bookBlobUrls!.entries()) {
-                                if (storedPath.endsWith('/' + filename) || storedPath === filename) {
-                                    blobUrl = url;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if (blobUrl) {
-                            console.log(`[useBookContent] Resolved image: ${path} -> ${blobUrl.substring(0, 30)}...`);
-                            return `src="${blobUrl}" href="${blobUrl}" xlink:href="${blobUrl}" data-epub-src="${path}"`;
-                        }
-
-                        console.warn(`[useBookContent] Failed to resolve image path: ${path} in book ${bookId}`);
-                        console.log('[useBookContent] Available paths:', Array.from(bookBlobUrls!.keys()));
-                        return match;
+                        const url = requestManager.getLnImageUrl(bookId, path);
+                        return `src="${url}" href="${url}" xlink:href="${url}" data-epub-src="${path}"`;
                     });
                 });
 
@@ -112,10 +78,9 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                     chapters: processedChapters,
                     stats: metadata.stats,
                     metadata,
-                    chapterFilenames: parsedBook.chapterFilenames || [],
+                    chapterFilenames: [], // Not strictly needed anymore
                 });
                 setIsLoading(false);
-
             } catch (err: any) {
                 if (cancelled) return;
                 console.error('[useBookContent] Load error:', err);

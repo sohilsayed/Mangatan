@@ -37,6 +37,7 @@ import { OCRManager } from '@/Manatan/OCRManager.tsx';
 // Manatan Sync Provider
 import { SyncProvider } from '@/features/sync/services/SyncContext';
 import { MembershipPerksPopup } from '@/features/membership/components/MembershipPerksPopup.tsx';
+import { migrateLnToLocalServer } from '@/features/ln/services/migration';
 
 const { Browse } = loadable(() => import('@/features/browse/screens/Browse.tsx'), lazyLoadFallback);
 const { DownloadQueue } = loadable(() => import('@/features/downloads/screens/DownloadQueue.tsx'), lazyLoadFallback);
@@ -139,6 +140,9 @@ const InitialBackgroundRequests = () => {
         // Fetch extension list on startup to show up-to-date number of available extension updates in the navigation bar
         // without having to open the extensions page.
         fetchExtensionList().catch(defaultPromiseErrorHandler('App::InitialBackgroundRequests: extension list'));
+
+        // Migrate LN data to local server on first run
+        migrateLnToLocalServer().catch(defaultPromiseErrorHandler('App::InitialBackgroundRequests: LN migration'));
     }, []);
 
     return null;

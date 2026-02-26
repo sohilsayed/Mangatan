@@ -9,6 +9,7 @@
 import { BlockIndexMap } from '@/features/ln/reader/types/block';
 import { jsonSaveParse } from '@/lib/HelperFunctions.ts';
 import localforage from 'localforage';
+import { requestManager } from '@/lib/requests/RequestManager';
 
 type StorageBackend = typeof window.localStorage | null;
 
@@ -327,16 +328,33 @@ export class AppStorage {
         const existing = await this.getLnProgress(bookId);
         const now = Date.now();
 
-        await this.lnProgress.setItem(bookId, {
+        const fullProgress = {
             ...progress,
             lastRead: now,
             lastModified: now,
             syncVersion: (existing?.syncVersion || 0) + 1,
             deviceId: getDeviceId(),
-        });
+        };
+
+        try {
+            await requestManager.saveLnProgress(bookId, fullProgress).response;
+        } catch (e) {
+            console.error('[AppStorage] Failed to save progress to server:', e);
+        }
+
+        await this.lnProgress.setItem(bookId, fullProgress);
     }
 
     static async getLnProgress(bookId: string): Promise<LNProgress | null> {
+        try {
+            const response = await requestManager.getClient().fetcher(`/api/v1/ln/${bookId}/progress`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.error(`[AppStorage] Failed to fetch progress for ${bookId}:`, e);
+        }
+
         try {
             return await this.lnProgress.getItem<LNProgress>(bookId);
         } catch {
@@ -355,6 +373,15 @@ export class AppStorage {
 
     static async getLnMetadata(bookId: string): Promise<LNMetadata | null> {
         try {
+            const response = await requestManager.getClient().fetcher(`/api/v1/ln/${bookId}`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.error(`[AppStorage] Failed to fetch metadata for ${bookId}:`, e);
+        }
+
+        try {
             return await this.lnMetadata.getItem<LNMetadata>(bookId);
         } catch {
             return null;
@@ -362,6 +389,9 @@ export class AppStorage {
     }
 
     static async saveLnMetadata(metadata: LNMetadata): Promise<void> {
+        // Metadata is usually saved during import on server,
+        // but for updates (categories, etc.) we might need a PUT endpoint.
+        // For now, we still save to local IndexedDB as well.
         await this.lnMetadata.setItem(metadata.id, metadata);
     }
 
@@ -376,6 +406,16 @@ export class AppStorage {
     }
 
     static async getAllLnMetadata(): Promise<LNMetadata[]> {
+        try {
+            const books = await requestManager.getClient().fetcher('/api/v1/ln');
+            const data = await books.json();
+            if (data && Array.isArray(data)) {
+                return data;
+            }
+        } catch (e) {
+            console.error('[AppStorage] Failed to fetch LN library from server:', e);
+        }
+
         const keys = await this.lnMetadata.keys();
         const allMetadata: LNMetadata[] = [];
 
@@ -610,6 +650,15 @@ export class AppStorage {
     // ========================================================================
 
     static async getLnCategories(): Promise<LnCategory[]> {
+        try {
+            const response = await requestManager.getClient().fetcher('/api/v1/ln/categories');
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.error('[AppStorage] Failed to fetch LN categories from server:', e);
+        }
+
         const keys = await this.lnCategories.keys();
         const categories: LnCategory[] = [];
 
@@ -624,14 +673,16 @@ export class AppStorage {
     }
 
     static async getLnCategory(categoryId: string): Promise<LnCategory | null> {
-        try {
-            return await this.lnCategories.getItem<LnCategory>(categoryId);
-        } catch {
-            return null;
-        }
+        const all = await this.getLnCategories();
+        return all.find(c => c.id === categoryId) || null;
     }
 
     static async saveLnCategory(category: LnCategory): Promise<void> {
+        try {
+            await requestManager.updateLnCategory(category.id, category).response;
+        } catch (e) {
+            console.error('[AppStorage] Failed to save LN category to server:', e);
+        }
         await this.lnCategories.setItem(category.id, category);
     }
 
@@ -647,7 +698,13 @@ export class AppStorage {
             lastModified: Date.now(),
         };
 
-        await this.saveLnCategory(newCategory);
+        try {
+            await requestManager.createLnCategory(newCategory).response;
+        } catch (e) {
+            console.error('[AppStorage] Failed to create LN category on server:', e);
+        }
+
+        await this.lnCategories.setItem(newCategory.id, newCategory);
         return newCategory;
     }
 
@@ -655,14 +712,28 @@ export class AppStorage {
         const existing = await this.getLnCategory(categoryId);
         if (!existing) return;
 
-        await this.lnCategories.setItem(categoryId, {
+        const updated = {
             ...existing,
             ...updates,
             lastModified: Date.now(),
-        });
+        };
+
+        try {
+            await requestManager.updateLnCategory(categoryId, updated).response;
+        } catch (e) {
+            console.error('[AppStorage] Failed to update LN category on server:', e);
+        }
+
+        await this.lnCategories.setItem(categoryId, updated);
     }
 
     static async deleteLnCategory(categoryId: string): Promise<void> {
+        try {
+            await requestManager.deleteLnCategory(categoryId).response;
+        } catch (e) {
+            console.error('[AppStorage] Failed to delete LN category on server:', e);
+        }
+
         await this.lnCategories.removeItem(categoryId);
         await this.lnCategoryMetadata.removeItem(categoryId);
 

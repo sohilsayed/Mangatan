@@ -116,10 +116,12 @@ export class SyncService {
             const progressMsg = 'Collecting reading progress...';
             console.log('[SYNC] ' + progressMsg);
             onProgress?.({ phase: 'collecting', message: progressMsg });
-            const progressKeys = await AppStorage.lnProgress.keys();
-            console.log('[SYNC] Found %d progress entries', progressKeys.length);
-            for (const key of progressKeys) {
-                let progress = await AppStorage.lnProgress.getItem<any>(key);
+
+            const allMetadata = await AppStorage.getAllLnMetadata();
+            console.log('[SYNC] Found %d potential progress entries', allMetadata.length);
+            for (const meta of allMetadata) {
+                const key = meta.id;
+                let progress = await AppStorage.getLnProgress(key);
                 if (progress) {
                     // Apply progress migration if needed
                     if (progress.chapter_index !== undefined) {
@@ -155,10 +157,10 @@ export class SyncService {
             const metadataMsg = 'Collecting book metadata...';
             console.log('[SYNC] ' + metadataMsg);
             onProgress?.({ phase: 'collecting', message: metadataMsg });
-            const metadataKeys = await AppStorage.lnMetadata.keys();
-            console.log('[SYNC] Found %d metadata entries', metadataKeys.length);
-            for (const key of metadataKeys) {
-                let metadata = await AppStorage.lnMetadata.getItem<any>(key);
+            const allMetadata = await AppStorage.getAllLnMetadata();
+            console.log('[SYNC] Found %d metadata entries', allMetadata.length);
+            for (let metadata of allMetadata) {
+                const key = metadata.id;
                 if (metadata) {
                     let needsMigration = false;
                     
@@ -336,11 +338,11 @@ export class SyncService {
             console.log('[SYNC] ' + catMsg);
             onProgress?.({ phase: 'collecting', message: catMsg });
             
-            const categoryKeys = await AppStorage.lnCategories.keys();
-            console.log('[SYNC] Found %d category entries', categoryKeys.length);
+            const allCategories = await AppStorage.getLnCategories();
+            console.log('[SYNC] Found %d category entries', allCategories.length);
             
-            for (const key of categoryKeys) {
-                const category = await AppStorage.lnCategories.getItem<any>(key);
+            for (const category of allCategories) {
+                const key = category.id;
                 if (category) {
                     // Migrate snake_case to camelCase if needed
                     const migrated = {
@@ -405,7 +407,7 @@ export class SyncService {
             
             for (let i = 0; i < entries.length; i++) {
                 const [bookId, progress] = entries[i];
-                await AppStorage.lnProgress.setItem(bookId, progress);
+                await AppStorage.saveLnProgress(bookId, progress as any);
                 
                 onProgress?.({
                     phase: 'applying',
@@ -425,7 +427,7 @@ export class SyncService {
             
             for (let i = 0; i < entries.length; i++) {
                 const [bookId, metadata] = entries[i];
-                await AppStorage.lnMetadata.setItem(bookId, metadata);
+                await AppStorage.saveLnMetadata(metadata as any);
                 
                 // Collect language settings for localStorage
                 const settings = metadata.languageSettings || metadata.language_settings;
@@ -497,9 +499,9 @@ export class SyncService {
             const entries = Object.entries(payload.lnCategories);
             
             for (const [categoryId, category] of entries) {
-                const existing = await AppStorage.lnCategories.getItem(categoryId);
+                const existing = await AppStorage.getLnCategory(categoryId);
                 if (!existing || (category.lastModified || 0) > (existing.lastModified || 0)) {
-                    await AppStorage.lnCategories.setItem(categoryId, category);
+                    await AppStorage.saveLnCategory(category as any);
                 }
             }
         }

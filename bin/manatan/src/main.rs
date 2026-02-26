@@ -1,4 +1,5 @@
 mod io;
+pub mod ln_server;
 
 use std::{
     env,
@@ -1013,6 +1014,15 @@ async fn run_server(
             local_anime_dir.display()
         );
     }
+    let local_ln_dir = data_dir.join("local-ln");
+    if !local_ln_dir.exists()
+        && let Err(err) = fs::create_dir_all(&local_ln_dir)
+    {
+        warn!(
+            "Failed to create local ln dir {}: {err}",
+            local_ln_dir.display()
+        );
+    }
     let bin_dir = data_dir.join("bin");
     if !bin_dir.exists() {
         fs::create_dir_all(&bin_dir).map_err(|err| anyhow!("Failed to create bin dir {err:?}"))?;
@@ -1168,6 +1178,7 @@ async fn run_server(
 
     let ocr_router = manatan_ocr_server::create_router(data_dir.clone());
     let yomitan_router = manatan_yomitan_server::create_router(data_dir.clone());
+    let ln_router = ln_server::routes::create_router(data_dir.clone());
     let audio_router = manatan_audio_server::create_router(data_dir.clone());
     let sync_router = manatan_sync_server::create_router(data_dir.clone());
     let system_router = Router::new().route("/version", any(current_version_handler));
@@ -1198,6 +1209,7 @@ async fn run_server(
         .nest("/api/sync", sync_router)
         .nest("/api/system", system_router)
         .nest("/api/yomitan", yomitan_router)
+        .merge(ln_router)
         .merge(manatan_router)
         .fallback(serve_react_app)
         .layer(cors);

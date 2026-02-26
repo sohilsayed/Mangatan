@@ -5053,6 +5053,251 @@ export class RequestManager {
         });
     }
 
+    public useGetLnLibrary(
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher('/api/v1/ln', { config: { signal } });
+                return await response.json();
+            },
+            [options?.skip],
+            options,
+        );
+    }
+
+    public useGetLnBook(
+        id: string,
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher(`/api/v1/ln/${id}`, { config: { signal } });
+                return await response.json();
+            },
+            [id, options?.skip],
+            options,
+        );
+    }
+
+    public importLnBook(
+        file: File,
+        id?: string,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            const formData = new FormData();
+            formData.append('file', file);
+            if (id) {
+                formData.append('id', id);
+            }
+            const response = await this.restClient.fetcher('/api/v1/ln/import', {
+                httpMethod: HttpMethod.POST,
+                data: formData,
+                config: { signal },
+            });
+            return await response.json();
+        });
+    }
+
+    public importLnBookFromPath(
+        path: string,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            const response = await this.restClient.fetcher('/api/v1/ln/import-from-path', {
+                httpMethod: HttpMethod.POST,
+                data: { path },
+                config: { signal },
+            });
+            return await response.json();
+        });
+    }
+
+    public deleteLnBook(
+        id: string,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            await this.restClient.fetcher(`/api/v1/ln/${id}`, {
+                httpMethod: HttpMethod.DELETE,
+                config: { signal },
+            });
+            return { ok: true };
+        });
+    }
+
+    public useGetLnChapters(
+        id: string,
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher(`/api/v1/ln/${id}/chapters`, { config: { signal } });
+                return await response.json();
+            },
+            [id, options?.skip],
+            options,
+        );
+    }
+
+    public async getLnChapterContent(id: string, index: number): Promise<string> {
+        const response = await this.restClient.fetcher(`/api/v1/ln/${id}/chapter/${index}`);
+        return await response.text();
+    }
+
+    public getLnImageUrl(id: string, path: string): string {
+        return this.getValidUrlFor(`ln/${id}/image/${path}`);
+    }
+
+    public useGetLnProgress(
+        id: string,
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher(`/api/v1/ln/${id}/progress`, { config: { signal } });
+                return await response.json();
+            },
+            [id, options?.skip],
+            options,
+        );
+    }
+
+    public saveLnProgress(
+        id: string,
+        progress: any,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            await this.restClient.fetcher(`/api/v1/ln/${id}/progress`, {
+                httpMethod: HttpMethod.PUT,
+                data: progress,
+                config: { signal },
+            });
+            return { ok: true };
+        });
+    }
+
+    public useGetLnHighlights(
+        id: string,
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher(`/api/v1/ln/${id}/highlights`, { config: { signal } });
+                return await response.json();
+            },
+            [id, options?.skip],
+            options,
+        );
+    }
+
+    public addLnHighlight(
+        id: string,
+        highlight: any,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            await this.restClient.fetcher(`/api/v1/ln/${id}/highlights`, {
+                httpMethod: HttpMethod.POST,
+                data: highlight,
+                config: { signal },
+            });
+            return { ok: true };
+        });
+    }
+
+    public deleteLnHighlight(
+        id: string,
+        hid: string,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            await this.restClient.fetcher(`/api/v1/ln/${id}/highlights/${hid}`, {
+                httpMethod: HttpMethod.DELETE,
+                config: { signal },
+            });
+            return { ok: true };
+        });
+    }
+
+    public useSearchLnBook(
+        id: string,
+        query: string,
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                if (!query) return [];
+                return await this.searchLnBook(id, query, signal);
+            },
+            [id, query, options?.skip],
+            options,
+        );
+    }
+
+    public async searchLnBook(id: string, query: string, signal?: AbortSignal): Promise<any> {
+        if (!query) return [];
+        const response = await this.restClient.fetcher(`/api/v1/ln/${id}/search?q=${encodeURIComponent(query)}`, { config: { signal } });
+        return await response.json();
+    }
+
+    public useGetLnCategories(
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher('/api/v1/ln/categories', { config: { signal } });
+                return await response.json();
+            },
+            [options?.skip],
+            options,
+        );
+    }
+
+    public createLnCategory(
+        category: any,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            const response = await this.restClient.fetcher('/api/v1/ln/categories', {
+                httpMethod: HttpMethod.POST,
+                data: category,
+                config: { signal },
+            });
+            return await response.json();
+        });
+    }
+
+    public updateLnCategory(
+        id: string,
+        category: any,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            const response = await this.restClient.fetcher(`/api/v1/ln/categories/${id}`, {
+                httpMethod: HttpMethod.PUT,
+                data: category,
+                config: { signal },
+            });
+            return await response.json();
+        });
+    }
+
+    public deleteLnCategory(
+        id: string,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            await this.restClient.fetcher(`/api/v1/ln/categories/${id}`, {
+                httpMethod: HttpMethod.DELETE,
+                config: { signal },
+            });
+            return { ok: true };
+        });
+    }
+
     public refreshUser(
         refreshToken: string,
         options?: MutationOptions<UserRefreshMutation, UserRefreshMutationVariables>,

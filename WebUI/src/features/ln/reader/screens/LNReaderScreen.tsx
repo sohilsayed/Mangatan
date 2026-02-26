@@ -356,41 +356,45 @@ export const LNReaderScreen: React.FC = () => {
         setTocOpen(false);
     };
 
-    const handleSearch = (query: string) => {
-        if (!query.trim() || !content) {
+    const handleSearch = async (query: string) => {
+        if (!query.trim() || !id) {
             setSearchResults([]);
             return;
         }
 
-        const results: {chapterIndex: number; text: string; position: number}[] = [];
-        const searchLower = query.toLowerCase();
-
-        content.chapters.forEach((chapterHtml, chapterIdx) => {
-            const text = chapterHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-            const textLower = text.toLowerCase();
-            let position = textLower.indexOf(searchLower);
-            
-            while (position !== -1) {
-                // Get context around the match
-                const start = Math.max(0, position - 30);
-                const end = Math.min(text.length, position + query.length + 30);
-                const context = text.substring(start, end);
-                
-                results.push({
-                    chapterIndex: chapterIdx,
-                    text: context,
-                    position: position
-                });
-                
-                // Find next occurrence
-                position = textLower.indexOf(searchLower, position + 1);
-                
-                // Limit results per chapter
-                if (results.filter(r => r.chapterIndex === chapterIdx).length >= 5) break;
+        try {
+            const data = await requestManager.searchLnBook(id, query);
+            if (data) {
+                setSearchResults(data);
             }
-        });
+        } catch (e) {
+            console.error('Server-side search failed, falling back to client-side:', e);
+            // Fallback to client-side search if server fails
+            if (!content) return;
+            const results: {chapterIndex: number; text: string; position: number}[] = [];
+            const searchLower = query.toLowerCase();
 
-        setSearchResults(results);
+            content.chapters.forEach((chapterHtml, chapterIdx) => {
+                const text = chapterHtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+                const textLower = text.toLowerCase();
+                let position = textLower.indexOf(searchLower);
+
+                while (position !== -1) {
+                    const start = Math.max(0, position - 30);
+                    const end = Math.min(text.length, position + query.length + 30);
+                    const context = text.substring(start, end);
+
+                    results.push({
+                        chapterIndex: chapterIdx,
+                        text: context,
+                        position: position
+                    });
+                    position = textLower.indexOf(searchLower, position + 1);
+                    if (results.filter(r => r.chapterIndex === chapterIdx).length >= 5) break;
+                }
+            });
+            setSearchResults(results);
+        }
     };
 
     const handleSearchResultClick = (result: {chapterIndex: number; text: string; position: number}) => {
