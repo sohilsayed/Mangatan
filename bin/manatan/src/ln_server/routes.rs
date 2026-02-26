@@ -26,7 +26,7 @@ pub fn create_router(data_dir: PathBuf) -> Router {
 
     Router::new()
         .route("/api/v1/ln", get(list_books))
-        .route("/api/v1/ln/:id", get(get_book).delete(delete_book))
+        .route("/api/v1/ln/:id", get(get_book).put(update_book).delete(delete_book))
         .route("/api/v1/ln/import", post(import_book))
         .route("/api/v1/ln/import-from-path", post(import_from_path))
         .route("/api/v1/ln/:id/chapters", get(get_chapters))
@@ -37,13 +37,46 @@ pub fn create_router(data_dir: PathBuf) -> Router {
         .route("/api/v1/ln/:id/highlights/:hid", delete(delete_highlight))
         .route("/api/v1/ln/:id/search", get(search_book))
         .route("/api/v1/ln/categories", get(list_categories).post(create_category))
+        .route("/api/v1/ln/categories/metadata", get(list_category_metadata))
         .route("/api/v1/ln/categories/:id", put(update_category).delete(delete_category))
+        .route("/api/v1/ln/categories/:id/metadata", get(get_category_metadata).put(save_category_metadata))
         .with_state(state)
 }
 
 async fn list_books(State(state): State<LnState>) -> impl IntoResponse {
     match state.storage.list_books() {
         Ok(books) => Json(books).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn list_category_metadata(State(state): State<LnState>) -> impl IntoResponse {
+    match state.storage.list_category_metadata() {
+        Ok(results) => Json(results).into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn get_category_metadata(State(state): State<LnState>, Path(id): Path<String>) -> impl IntoResponse {
+    match state.storage.get_category_metadata(&id) {
+        Ok(Some(metadata)) => Json(metadata).into_response(),
+        Ok(None) => StatusCode::NOT_FOUND.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn save_category_metadata(State(state): State<LnState>, Path(id): Path<String>, Json(metadata): Json<LNCategoryMetadata>) -> impl IntoResponse {
+    match state.storage.save_category_metadata(&id, &metadata) {
+        Ok(_) => StatusCode::OK.into_response(),
+        Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
+    }
+}
+
+async fn update_book(State(state): State<LnState>, Path(id): Path<String>, Json(metadata): Json<LNMetadata>) -> impl IntoResponse {
+    // This is a bit tricky because save_book takes chapters and images too.
+    // Let's add a specialized update_metadata method to storage.
+    match state.storage.update_book_metadata(&id, &metadata) {
+        Ok(_) => StatusCode::OK.into_response(),
         Err(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response(),
     }
 }

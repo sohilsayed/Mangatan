@@ -812,6 +812,15 @@ export class AppStorage {
 
     static async getLnCategoryMetadata(categoryId: string): Promise<LnCategoryMetadata | null> {
         try {
+            const response = await requestManager.getClient().fetcher(`/api/v1/ln/categories/${categoryId}/metadata`);
+            if (response.ok) {
+                return await response.json();
+            }
+        } catch (e) {
+            console.error(`[AppStorage] Failed to fetch metadata for category ${categoryId}:`, e);
+        }
+
+        try {
             return await this.lnCategoryMetadata.getItem<LnCategoryMetadata>(categoryId);
         } catch {
             return null;
@@ -819,17 +828,39 @@ export class AppStorage {
     }
 
     static async setLnCategoryMetadata(categoryId: string, metadata: LnCategoryMetadata): Promise<void> {
+        try {
+            await requestManager.saveLnCategoryMetadata(categoryId, metadata).response;
+        } catch (e) {
+            console.error(`[AppStorage] Failed to save metadata for category ${categoryId}:`, e);
+        }
         await this.lnCategoryMetadata.setItem(categoryId, metadata);
     }
 
     static async getAllLnCategoryMetadata(): Promise<Record<string, LnCategoryMetadata>> {
+        try {
+            const data = await requestManager.listAllLnCategoryMetadata();
+            if (data) {
+                return data;
+            }
+        } catch (e) {
+            console.error('[AppStorage] Failed to fetch all LN category metadata from server:', e);
+        }
+
+        return this.getLocalOnlyLnCategoryMetadata();
+    }
+
+    static async getLocalOnlyLnCategoryMetadata(): Promise<Record<string, LnCategoryMetadata>> {
         const keys = await this.lnCategoryMetadata.keys();
         const metadata: Record<string, LnCategoryMetadata> = {};
 
         for (const key of keys) {
-            const catMeta = await this.lnCategoryMetadata.getItem<LnCategoryMetadata>(key as string);
-            if (catMeta) {
-                metadata[key as string] = catMeta;
+            try {
+                const catMeta = await this.lnCategoryMetadata.getItem<LnCategoryMetadata>(key as string);
+                if (catMeta) {
+                    metadata[key as string] = catMeta;
+                }
+            } catch {
+                // Ignore
             }
         }
 

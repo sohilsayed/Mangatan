@@ -54,6 +54,12 @@ impl LnStorage {
         Ok(metadata)
     }
 
+    pub fn update_book_metadata(&self, book_id: &str, metadata: &LNMetadata) -> Result<()> {
+        let path = self.books_path().join(book_id).join("metadata.json");
+        fs::write(path, serde_json::to_string_pretty(metadata)?)?;
+        Ok(())
+    }
+
     pub fn save_book(&self, metadata: &LNMetadata, chapters: &[String], images: &HashMap<String, Vec<u8>>) -> Result<()> {
         let book_dir = self.books_path().join(&metadata.id);
         fs::create_dir_all(&book_dir)?;
@@ -186,5 +192,23 @@ impl LnStorage {
         let path = self.categories_path().join(format!("{}_meta.json", category_id));
         fs::write(path, serde_json::to_string_pretty(metadata)?)?;
         Ok(())
+    }
+
+    pub fn list_category_metadata(&self) -> Result<HashMap<String, LNCategoryMetadata>> {
+        let mut results = HashMap::new();
+        if let Ok(entries) = fs::read_dir(self.categories_path()) {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if name.ends_with("_meta.json") {
+                    let id = name.replace("_meta.json", "");
+                    if let Ok(meta) = self.get_category_metadata(&id) {
+                        if let Some(meta) = meta {
+                            results.insert(id, meta);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(results)
     }
 }

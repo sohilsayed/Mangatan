@@ -46,6 +46,7 @@ quick-xml = "0.37"
 ammonia = "4.0"
 html5ever = "0.29"
 kuchiki = "0.8"
+tempfile = "3"
 
 # Internal Crates
 manatan-audio-server.workspace = true

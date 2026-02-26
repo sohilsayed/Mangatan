@@ -5066,6 +5066,21 @@ export class RequestManager {
         );
     }
 
+    public updateLnBook(
+        id: string,
+        metadata: any,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            const response = await this.restClient.fetcher(`/api/v1/ln/${id}`, {
+                httpMethod: HttpMethod.PUT,
+                data: metadata,
+                config: { signal },
+            });
+            return { ok: response.ok };
+        });
+    }
+
     public useGetLnBook(
         id: string,
         options?: QueryHookOptions<any, any>,
@@ -5121,6 +5136,40 @@ export class RequestManager {
         return this.doRestMutation(async (signal) => {
             await this.restClient.fetcher(`/api/v1/ln/${id}`, {
                 httpMethod: HttpMethod.DELETE,
+                config: { signal },
+            });
+            return { ok: true };
+        });
+    }
+
+    public async listAllLnCategoryMetadata(): Promise<Record<string, any>> {
+        const response = await this.restClient.fetcher('/api/v1/ln/categories/metadata');
+        return await response.json();
+    }
+
+    public useGetLnCategoryMetadata(
+        id: string,
+        options?: QueryHookOptions<any, any>,
+    ): AbortableApolloUseQueryResponse<any, any> {
+        return this.useRestQuery(
+            async (signal) => {
+                const response = await this.restClient.fetcher(`/api/v1/ln/categories/${id}/metadata`, { config: { signal } });
+                return await response.json();
+            },
+            [id, options?.skip],
+            options,
+        );
+    }
+
+    public saveLnCategoryMetadata(
+        id: string,
+        metadata: any,
+        options?: MutationOptions<any, any>,
+    ): AbortableApolloMutationResponse<any> {
+        return this.doRestMutation(async (signal) => {
+            await this.restClient.fetcher(`/api/v1/ln/categories/${id}/metadata`, {
+                httpMethod: HttpMethod.PUT,
+                data: metadata,
                 config: { signal },
             });
             return { ok: true };

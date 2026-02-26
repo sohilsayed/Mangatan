@@ -3709,6 +3709,7 @@ dependencies = [
  "rust-embed",
  "self_update",
  "serde",
+ "tempfile",
  "tokio",
  "tokio-tungstenite 0.28.0",
  "tower-http 0.6.8",
