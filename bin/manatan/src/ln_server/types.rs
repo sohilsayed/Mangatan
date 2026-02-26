@@ -57,6 +57,8 @@ pub struct LNProgress {
     pub last_modified: Option<i64>,
     pub sync_version: Option<i32>,
     pub device_id: Option<String>,
+    #[serde(default)]
+    pub highlights: Vec<LNHighlight>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

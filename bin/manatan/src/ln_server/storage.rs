@@ -15,7 +15,6 @@ impl LnStorage {
             let _ = fs::create_dir_all(&base_path);
             let _ = fs::create_dir_all(base_path.join("books"));
             let _ = fs::create_dir_all(base_path.join("progress"));
-            let _ = fs::create_dir_all(base_path.join("highlights"));
             let _ = fs::create_dir_all(base_path.join("categories"));
         }
         Self { base_path }
@@ -27,10 +26,6 @@ impl LnStorage {
 
     fn progress_path(&self) -> PathBuf {
         self.base_path.join("progress")
-    }
-
-    fn highlights_path(&self) -> PathBuf {
-        self.base_path.join("highlights")
     }
 
     fn categories_path(&self) -> PathBuf {
@@ -97,10 +92,6 @@ impl LnStorage {
         if progress_file.exists() {
             fs::remove_file(progress_file)?;
         }
-        let highlights_file = self.highlights_path().join(format!("{}.json", book_id));
-        if highlights_file.exists() {
-            fs::remove_file(highlights_file)?;
-        }
         Ok(())
     }
 
@@ -133,19 +124,35 @@ impl LnStorage {
     }
 
     pub fn get_highlights(&self, book_id: &str) -> Result<LNHighlights> {
-        let path = self.highlights_path().join(format!("{}.json", book_id));
-        if !path.exists() {
-            return Ok(LNHighlights { highlights: Vec::new() });
+        if let Some(progress) = self.get_progress(book_id)? {
+            Ok(LNHighlights { highlights: progress.highlights })
+        } else {
+            Ok(LNHighlights { highlights: Vec::new() })
         }
-        let content = fs::read_to_string(path)?;
-        let highlights: LNHighlights = serde_json::from_str(&content)?;
-        Ok(highlights)
     }
 
     pub fn save_highlights(&self, book_id: &str, highlights: &LNHighlights) -> Result<()> {
-        let path = self.highlights_path().join(format!("{}.json", book_id));
-        fs::write(path, serde_json::to_string_pretty(highlights)?)?;
-        Ok(())
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis() as i64;
+        let mut progress = self.get_progress(book_id)?.unwrap_or_else(|| LNProgress {
+            chapter_index: 0,
+            page_number: None,
+            chapter_char_offset: 0,
+            total_chars_read: 0,
+            sentence_text: String::new(),
+            chapter_progress: 0.0,
+            total_progress: 0.0,
+            block_id: None,
+            block_local_offset: None,
+            context_snippet: None,
+            last_read: None,
+            last_modified: Some(now),
+            sync_version: None,
+            device_id: None,
+            highlights: Vec::new(),
+        });
+        progress.highlights = highlights.highlights.clone();
+        progress.last_modified = Some(now);
+        self.save_progress(book_id, &progress)
     }
 
     pub fn list_categories(&self) -> Result<Vec<LNCategory>> {

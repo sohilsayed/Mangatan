@@ -323,18 +323,18 @@ export class AppStorage {
 
     static async saveLnProgress(
         bookId: string,
-        progress: Omit<LNProgress, 'lastRead' | 'lastModified' | 'syncVersion' | 'deviceId'>
+        progress: Partial<LNProgress>
     ): Promise<void> {
         const existing = await this.getLnProgress(bookId);
         const now = Date.now();
 
         const fullProgress = {
             ...progress,
-            lastRead: now,
-            lastModified: now,
-            syncVersion: (existing?.syncVersion || 0) + 1,
-            deviceId: getDeviceId(),
-        };
+            lastRead: progress.lastRead || now,
+            lastModified: progress.lastModified || now,
+            syncVersion: progress.syncVersion || (existing?.syncVersion || 0) + 1,
+            deviceId: progress.deviceId || getDeviceId(),
+        } as LNProgress;
 
         try {
             await requestManager.saveLnProgress(bookId, fullProgress).response;
@@ -416,13 +416,21 @@ export class AppStorage {
             console.error('[AppStorage] Failed to fetch LN library from server:', e);
         }
 
+        return this.getLocalOnlyLnMetadata();
+    }
+
+    static async getLocalOnlyLnMetadata(): Promise<LNMetadata[]> {
         const keys = await this.lnMetadata.keys();
         const allMetadata: LNMetadata[] = [];
 
         for (const key of keys) {
-            const metadata = await this.getLnMetadata(key as string);
-            if (metadata) {
-                allMetadata.push(metadata);
+            try {
+                const metadata = await this.lnMetadata.getItem<LNMetadata>(key as string);
+                if (metadata) {
+                    allMetadata.push(metadata);
+                }
+            } catch {
+                // Ignore
             }
         }
 
@@ -461,6 +469,53 @@ export class AppStorage {
 
     static async deleteLnProgress(bookId: string): Promise<void> {
         await this.lnProgress.removeItem(bookId);
+    }
+
+    // ========================================================================
+    // Highlight Methods
+    // ========================================================================
+
+    static async getLnHighlights(bookId: string): Promise<LNHighlight[]> {
+        try {
+            const response = await requestManager.getClient().fetcher(`/api/v1/ln/${bookId}/highlights`);
+            if (response.ok) {
+                const data = await response.json();
+                return data.highlights || [];
+            }
+        } catch (e) {
+            console.error(`[AppStorage] Failed to fetch highlights for ${bookId}:`, e);
+        }
+
+        const progress = await this.getLnProgress(bookId);
+        return progress?.highlights || [];
+    }
+
+    static async addLnHighlight(bookId: string, highlight: LNHighlight): Promise<void> {
+        try {
+            await requestManager.addLnHighlight(bookId, highlight).response;
+        } catch (e) {
+            console.error(`[AppStorage] Failed to add highlight for ${bookId}:`, e);
+        }
+
+        const progress = await this.getLnProgress(bookId);
+        if (progress) {
+            const highlights = [...(progress.highlights || []), highlight];
+            await this.saveLnProgress(bookId, { ...progress, highlights });
+        }
+    }
+
+    static async deleteLnHighlight(bookId: string, highlightId: string): Promise<void> {
+        try {
+            await requestManager.deleteLnHighlight(bookId, highlightId).response;
+        } catch (e) {
+            console.error(`[AppStorage] Failed to delete highlight for ${bookId}:`, e);
+        }
+
+        const progress = await this.getLnProgress(bookId);
+        if (progress) {
+            const highlights = (progress.highlights || []).filter(h => h.id !== highlightId);
+            await this.saveLnProgress(bookId, { ...progress, highlights });
+        }
     }
 
     // ========================================================================
@@ -659,13 +714,21 @@ export class AppStorage {
             console.error('[AppStorage] Failed to fetch LN categories from server:', e);
         }
 
+        return this.getLocalOnlyLnCategories();
+    }
+
+    static async getLocalOnlyLnCategories(): Promise<LnCategory[]> {
         const keys = await this.lnCategories.keys();
         const categories: LnCategory[] = [];
 
         for (const key of keys) {
-            const category = await this.lnCategories.getItem<LnCategory>(key as string);
-            if (category) {
-                categories.push(category);
+            try {
+                const category = await this.lnCategories.getItem<LnCategory>(key as string);
+                if (category) {
+                    categories.push(category);
+                }
+            } catch {
+                // Ignore
             }
         }
 

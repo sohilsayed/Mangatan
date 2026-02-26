@@ -37,21 +37,21 @@ impl EpubParser {
         let opf_dir_str = Path::new(&opf_path).parent().unwrap_or(Path::new("")).to_string_lossy().to_string();
         let opf_dir = Path::new(&opf_dir_str);
 
-        for idref in &spine {
+        let mut block_maps = Vec::new();
+
+        for (ch_idx, idref) in spine.iter().enumerate() {
             if let Some(href) = manifest.get(idref).map(|m| &m.0) {
                 let full_path = Self::resolve_path(opf_dir, href);
                 if let Ok(content) = Self::read_zip_file(&mut archive, &full_path) {
                     let html = String::from_utf8_lossy(&content).to_string();
-                    let (processed_html, chapter_images) = Self::process_chapter_html(&html, &full_path, &mut archive)?;
+                    let (processed_html, chapter_images, chapter_block_map, chapter_len) = Self::process_chapter_html(&html, &full_path, ch_idx, &mut archive)?;
 
                     for (img_path, img_data) in chapter_images {
                         images.insert(img_path, img_data);
                     }
 
-                    // Simple character count (clean text)
-                    let doc = kuchiki::parse_html().one(processed_html.as_str());
-                    let text = doc.text_contents();
-                    chapter_lengths.push(text.chars().filter(|c| !c.is_whitespace()).count());
+                    block_maps.extend(chapter_block_map);
+                    chapter_lengths.push(chapter_len);
                     chapters.push(processed_html);
                 }
             }
@@ -88,7 +88,7 @@ impl EpubParser {
             stats: BookStats {
                 chapter_lengths,
                 total_length,
-                block_maps: None,
+                block_maps: Some(block_maps),
             },
             toc,
             language,
@@ -257,16 +257,57 @@ impl EpubParser {
         path.to_string_lossy().to_string().replace('\\', "/")
     }
 
-    fn process_chapter_html<R: Read + std::io::Seek>(html: &str, chapter_path: &str, archive: &mut ZipArchive<R>) -> Result<(String, HashMap<String, Vec<u8>>)> {
+    fn process_chapter_html<R: Read + std::io::Seek>(html: &str, chapter_path: &str, ch_idx: usize, archive: &mut ZipArchive<R>) -> Result<(String, HashMap<String, Vec<u8>>, Vec<BlockIndexMap>, usize)> {
         let document = kuchiki::parse_html().one(html);
         let mut images = HashMap::new();
+        let mut block_map = Vec::new();
         let chapter_dir_str = Path::new(chapter_path).parent().unwrap_or(Path::new("")).to_string_lossy().to_string();
         let chapter_dir = Path::new(&chapter_dir_str);
 
-        // Find all images
+        let mut block_count = 0;
+        let mut total_chars = 0;
+
+        // 1. Process images and add block IDs
         for edge in document.inclusive_descendants() {
             if let Some(element) = edge.as_element() {
                 let name = element.name.local.as_ref();
+
+                // Add block ID to common block elements
+                let is_block = matches!(name, "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "li" | "blockquote" | "pre" | "div");
+                if is_block {
+                    // Simple check to avoid nested block IDs
+                    let mut has_block_parent = false;
+                    let mut current = element.as_node().parent();
+                    while let Some(parent) = current {
+                        if let Some(parent_el) = parent.as_element() {
+                            let p_name = parent_el.name.local.as_ref();
+                            if matches!(p_name, "p" | "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "li" | "blockquote" | "pre" | "div") {
+                                has_block_parent = true;
+                                break;
+                            }
+                        }
+                        current = parent.parent();
+                    }
+
+                    if !has_block_parent {
+                        let block_id = format!("ch{}-b{}", ch_idx, block_count);
+                        element.attributes.borrow_mut().insert("data-block-id", block_id.clone());
+
+                        let text = element.as_node().text_contents();
+                        let clean_text: String = text.chars().filter(|c| !c.is_whitespace()).collect();
+                        let char_count = clean_text.chars().count();
+
+                        block_map.push(BlockIndexMap {
+                            block_id,
+                            start_offset: total_chars,
+                            end_offset: total_chars + char_count,
+                        });
+
+                        total_chars += char_count;
+                        block_count += 1;
+                    }
+                }
+
                 if name == "img" || name == "image" {
                     let src_attr = if name == "img" { "src" } else { "xlink:href" };
                     let mut attrs = element.attributes.borrow_mut();
@@ -303,7 +344,7 @@ impl EpubParser {
             }
         }
 
-        Ok((processed_html, images))
+        Ok((processed_html, images, block_map, total_chars))
     }
 
     fn find_cover_path(metadata: &HashMap<String, String>, manifest: &HashMap<String, (String, String)>, opf_dir: &Path) -> Option<String> {

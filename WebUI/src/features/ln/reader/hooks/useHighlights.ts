@@ -12,8 +12,8 @@ export function useHighlights(bookId: string) {
     const load = useCallback(async () => {
         try {
             setLoading(true);
-            const progress = await AppStorage.getLnProgress(bookId);
-            setHighlights(progress?.highlights ?? []);
+            const data = await AppStorage.getLnHighlights(bookId);
+            setHighlights(data);
         } catch (e) {
             console.warn('[useHighlights] Failed to load:', e);
             setHighlights([]);
@@ -25,27 +25,6 @@ export function useHighlights(bookId: string) {
     useEffect(() => {
         load();
     }, [load]);
-
-    const saveHighlights = useCallback(async (newHighlights: LNHighlight[]) => {
-        try {
-            const existing = await AppStorage.getLnProgress(bookId);
-            await AppStorage.saveLnProgress(bookId, {
-                chapterIndex: existing?.chapterIndex ?? 0,
-                pageNumber: existing?.pageNumber,
-                chapterCharOffset: existing?.chapterCharOffset ?? 0,
-                totalCharsRead: existing?.totalCharsRead ?? 0,
-                sentenceText: existing?.sentenceText ?? '',
-                chapterProgress: existing?.chapterProgress ?? 0,
-                totalProgress: existing?.totalProgress ?? 0,
-                blockId: existing?.blockId,
-                blockLocalOffset: existing?.blockLocalOffset,
-                contextSnippet: existing?.contextSnippet,
-                highlights: newHighlights,
-            });
-        } catch (e) {
-            console.warn('[useHighlights] Failed to save:', e);
-        }
-    }, [bookId]);
 
     const addHighlight = useCallback(async (
         chapterIndex: number,
@@ -76,17 +55,15 @@ export function useHighlights(bookId: string) {
             createdAt: Date.now(),
         };
 
-        const updated = [...highlights, newHighlight];
-        setHighlights(updated);
-        await saveHighlights(updated);
+        setHighlights(prev => [...prev, newHighlight]);
+        await AppStorage.addLnHighlight(bookId, newHighlight);
         return newHighlight;
-    }, [highlights, saveHighlights]);
+    }, [bookId, highlights]);
 
     const removeHighlight = useCallback(async (highlightId: string) => {
-        const updated = highlights.filter(h => h.id !== highlightId);
-        setHighlights(updated);
-        await saveHighlights(updated);
-    }, [highlights, saveHighlights]);
+        setHighlights(prev => prev.filter(h => h.id !== highlightId));
+        await AppStorage.deleteLnHighlight(bookId, highlightId);
+    }, [bookId]);
 
     const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
         return highlights.filter(h => h.chapterIndex === chapterIndex);

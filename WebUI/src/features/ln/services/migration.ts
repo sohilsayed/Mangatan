@@ -11,13 +11,13 @@ export async function migrateLnToLocalServer() {
 
     try {
         // 1. Migrate Categories
-        const categories = await AppStorage.getLnCategories();
+        const categories = await AppStorage.getLocalOnlyLnCategories();
         for (const cat of categories) {
             await requestManager.createLnCategory(cat).response;
         }
 
         // 2. Migrate Books
-        const allMetadata = await AppStorage.getAllLnMetadata();
+        const allMetadata = await AppStorage.getLocalOnlyLnMetadata();
         for (const metadata of allMetadata) {
             const bookId = metadata.id;
 
