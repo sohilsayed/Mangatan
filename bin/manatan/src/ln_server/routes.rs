@@ -120,18 +120,17 @@ async fn import_book(State(state): State<LnState>, mut multipart: Multipart) -> 
         };
 
         match EpubParser::parse(&data, &book_id) {
-                    Ok((metadata, chapters, images)) => {
-                        if let Err(e) = state.storage.save_book(&metadata, &chapters, &images) {
-                            return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
-                        }
-                        return Json(metadata).into_response();
-                    }
-                    Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
+            Ok((metadata, chapters, images)) => {
+                if let Err(e) = state.storage.save_book(&metadata, &chapters, &images) {
+                    return (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()).into_response();
                 }
+                return Json(metadata).into_response();
             }
+            Err(e) => return (StatusCode::BAD_REQUEST, e.to_string()).into_response(),
         }
+    } else {
+        StatusCode::BAD_REQUEST.into_response()
     }
-    StatusCode::BAD_REQUEST.into_response()
 }
 
 #[derive(Deserialize)]
