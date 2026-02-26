@@ -3,9 +3,11 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { requestManager } from '@/lib/requests/RequestManager';
 
 interface UseChapterLoaderProps {
-    chapters: string[];
+    bookId: string;
+    chapterCount: number;
     preloadCount?: number;
 }
 
@@ -19,15 +21,16 @@ interface UseChapterLoaderReturn {
 }
 
 export function useChapterLoader({
-    chapters,
+    bookId,
+    chapterCount,
     preloadCount = 2,
 }: UseChapterLoaderProps): UseChapterLoaderReturn {
     const [loadedChapters, setLoadedChapters] = useState<Map<number, string>>(new Map());
     const [loadingState, setLoadingState] = useState<Map<number, boolean>>(new Map());
     const loadedRef = useRef<Set<number>>(new Set());
 
-    const loadChapter = useCallback((index: number, immediate = false) => {
-        if (index < 0 || index >= chapters.length) return;
+    const loadChapter = useCallback(async (index: number, immediate = false) => {
+        if (index < 0 || index >= chapterCount) return;
         if (loadedRef.current.has(index)) return;
 
         loadedRef.current.add(index);
@@ -38,21 +41,31 @@ export function useChapterLoader({
             return next;
         });
 
-        const load = () => {
-            const html = chapters[index];
+        try {
+            let html = await requestManager.getLnChapterContent(bookId, index);
+
+            // Process image URLs
+            html = html.replace(/data-epub-src="([^"]+)"/g, (match, path) => {
+                const url = requestManager.getLnImageUrl(bookId, path);
+                return `src="${url}" href="${url}" xlink:href="${url}" data-epub-src="${path}"`;
+            });
 
             setLoadedChapters(prev => {
                 const next = new Map(prev);
                 next.set(index, html);
                 return next;
             });
-
+        } catch (e) {
+            console.error(`Failed to load chapter ${index}:`, e);
+            loadedRef.current.delete(index); // Allow retry
+        } finally {
             setLoadingState(prev => {
                 const next = new Map(prev);
                 next.set(index, false);
                 return next;
             });
-        };
+        }
+    }, [bookId, chapterCount]);
 
         // If immediate, execute NOW (for target chapter restoration)
         // Otherwise defer using requestIdleCallback
@@ -67,18 +80,18 @@ export function useChapterLoader({
 
     const loadChaptersAround = useCallback((centerIndex: number) => {
         // FIRST: Immediately load the target chapter (highest priority for restoration)
-        loadChapter(centerIndex, true);
+        void loadChapter(centerIndex, true);
         
         // THEN: Load surrounding chapters with deferred priority
         const start = Math.max(0, centerIndex - preloadCount);
-        const end = Math.min(chapters.length - 1, centerIndex + preloadCount);
+        const end = Math.min(chapterCount - 1, centerIndex + preloadCount);
 
         for (let i = start; i <= end; i++) {
             if (i !== centerIndex) {
-                loadChapter(i, false);
+                void loadChapter(i, false);
             }
         }
-    }, [chapters.length, preloadCount, loadChapter]);
+    }, [chapterCount, preloadCount, loadChapter]);
 
     const isChapterLoaded = useCallback((index: number): boolean => {
         return loadedChapters.has(index);

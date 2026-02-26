@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { AppStorage, LNMetadata, BookStats } from '@/lib/storage/AppStorage';
 
 export interface BookContent {
-    chapters: string[];
+    chapters: string[]; // Still keep for compatibility, but might be empty if lazy loading
     stats: BookStats;
     metadata: LNMetadata;
     chapterFilenames: string[];
@@ -48,37 +48,11 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                     return;
                 }
 
-                // Optimization: Fetch all chapters in parallel from server
-                const chapterCount = metadata.chapterCount || metadata.chapter_count || 0;
-                const chapterIndices = Array.from({ length: chapterCount }, (_, i) => i);
-
-                const chapters = await Promise.all(
-                    chapterIndices.map(async (index) => {
-                        try {
-                            return await requestManager.getLnChapterContent(bookId, index);
-                        } catch (e) {
-                            console.error(`Failed to load chapter ${index}:`, e);
-                            return `<p>Error loading chapter ${index}</p>`;
-                        }
-                    })
-                );
-
-                if (cancelled) return;
-
-                const processedChapters = chapters.map((html) => {
-                    return html.replace(/data-epub-src="([^"]+)"/g, (match, path) => {
-                        const url = requestManager.getLnImageUrl(bookId, path);
-                        return `src="${url}" href="${url}" xlink:href="${url}" data-epub-src="${path}"`;
-                    });
-                });
-
-                if (cancelled) return;
-
                 setContent({
-                    chapters: processedChapters,
+                    chapters: [], // We don't load all at once anymore
                     stats: metadata.stats,
                     metadata,
-                    chapterFilenames: [], // Not strictly needed anymore
+                    chapterFilenames: [],
                 });
                 setIsLoading(false);
             } catch (err: any) {

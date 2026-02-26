@@ -140,3 +140,11 @@ pub struct SearchResult {
     pub text: String,
     pub position: usize,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LNParsedBook {
+    pub chapters: Vec<String>,
+    pub image_blobs: HashMap<String, String>,
+    pub chapter_filenames: Vec<String>,
+}

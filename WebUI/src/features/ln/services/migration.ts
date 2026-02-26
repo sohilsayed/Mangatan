@@ -66,11 +66,12 @@ export async function migrateLnToLocalServer() {
                     await requestManager.importLnBook(fileObj, bookId).response;
 
                     // 1. Migrate Metadata (to preserve languageSettings, categoryIds, etc.)
-                    const metadataFromServer = await requestManager.useGetLnBook(bookId).refetch();
-                    if (metadataFromServer.data) {
+                    const metadataResponse = await requestManager.getClient().fetcher(`/api/v1/ln/${bookId}`);
+                    if (metadataResponse.ok) {
+                        const metadataFromServer = await metadataResponse.json();
                         const mergedMetadata = {
-                            ...metadataFromServer.data,
-                            language: metadata.language || metadataFromServer.data.language,
+                            ...metadataFromServer,
+                            language: metadata.language || metadataFromServer.language,
                             categoryIds: metadata.categoryIds || (metadata as any).category_ids || [],
                             languageSettings: metadata.languageSettings || (metadata as any).language_settings || {},
                         };
