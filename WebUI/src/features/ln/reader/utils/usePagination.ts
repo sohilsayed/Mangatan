@@ -24,9 +24,13 @@ export function usePagination({
     const measureContainerRef = useRef<HTMLDivElement>(null);
 
     const paginate = useCallback(async () => {
-        if (!html || !measureContainerRef.current || viewportWidth === 0 || viewportHeight === 0) return;
+        if (!html || !measureContainerRef.current || viewportWidth === 0 || viewportHeight === 0) {
+            setFragments([]);
+            return;
+        }
 
         setIsMeasuring(true);
+        setFragments([]);
         const blocks = parseChapterToBlocks(html);
         const container = measureContainerRef.current;
 

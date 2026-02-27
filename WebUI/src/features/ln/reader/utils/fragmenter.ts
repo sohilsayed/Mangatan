@@ -128,7 +128,12 @@ export function createPageFragments(
             let offset = 0;
             const totalCharsInBlock = blocks[i].charCount;
 
-            while (remainingHeight > 0) {
+            // Safety break to prevent infinite loops
+            let iterations = 0;
+            const fragmentSize = Math.max(100, availableSpace); // Ensure we always advance
+
+            while (remainingHeight > 0 && iterations < 500) {
+                iterations++;
                 const progressRatio = offset / blockSize;
                 fragments.push({
                     blocks: [{
@@ -140,8 +145,8 @@ export function createPageFragments(
                     endIndex: i,
                     charOffset: blocks[i].charOffset + Math.floor(totalCharsInBlock * progressRatio)
                 });
-                remainingHeight -= availableSpace;
-                offset += availableSpace;
+                remainingHeight -= fragmentSize;
+                offset += fragmentSize;
             }
             startIndexInFullList = i + 1;
             continue;

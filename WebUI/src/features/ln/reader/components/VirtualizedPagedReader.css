@@ -52,8 +52,24 @@
 }
 
 .page-content.vertical-text {
-    display: flex;
-    flex-direction: row-reverse; /* For RTL vertical text */
+    /* Ensure blocks are measured and positioned correctly in vertical RL mode */
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.page-content img {
+    max-width: 100%;
+    max-height: 100%;
+    height: auto;
+    width: auto;
+    object-fit: contain;
+    display: block;
+}
+
+.page-content.vertical-text img {
+    margin-left: auto;
+    margin-right: 0;
 }
 
 /* Reset standard margins to avoid double padding */

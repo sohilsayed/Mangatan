@@ -2,7 +2,6 @@
 
 import React, { ReactNode, useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Settings } from '@/Manatan/types';
-import { PagedReader } from './PagedReader';
 import { VirtualizedPagedReader } from './VirtualizedPagedReader';
 import { ContinuousReader } from './ContinuousReader';
 import { useUIVisibility } from '../hooks/useUIVisibility';
