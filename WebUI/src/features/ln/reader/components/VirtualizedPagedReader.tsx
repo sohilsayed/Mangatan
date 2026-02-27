@@ -13,6 +13,7 @@ import { createSaveScheduler } from '../utils/readerSave';
 import { detectVisibleBlockPaged } from '../utils/pagedPosition';
 import { extractContextSnippet, calculateBlockLocalOffset, calculateChapterCharOffset } from '../utils/blockPosition';
 import { calculateProgress } from '../utils/readerSave';
+import { scrollToPageRTL, getRTLPageIndex } from '../utils/rtlScroll';
 import './VirtualizedPagedReader.css';
 
 export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
@@ -39,6 +40,7 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
     const [currentPageIndex, setCurrentPageIndex] = useState(initialPage);
     const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
     const hasInitialRestored = useRef(false);
+    const lastSeenCharOffset = useRef<number>(initialProgress?.chapterCharOffset || 0);
     const [currentProgress, setCurrentProgress] = useState(initialProgress?.totalProgress || 0);
 
     const theme = useMemo(() => getReaderTheme(settings.lnTheme), [settings.lnTheme]);
@@ -53,22 +55,49 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
     });
 
     useEffect(() => {
-        if (!isMeasuring && fragments.length > 0 && !hasInitialRestored.current && initialProgress?.blockId) {
-            const index = fragments.findIndex(f =>
-                f.blocks.some(b => b.includes(`data-block-id="${initialProgress.blockId}"`))
-            );
-            if (index !== -1) {
-                setCurrentPageIndex(index);
-                if (containerRef.current) {
-                    const scrollOptions: ScrollToOptions = isVertical
-                        ? { top: index * viewportSize.height }
-                        : { left: index * viewportSize.width };
-                    containerRef.current.scrollTo(scrollOptions);
+        hasInitialRestored.current = false;
+    }, [currentChapterIndex]);
+
+    useEffect(() => {
+        if (!isMeasuring && fragments.length > 0 && !hasInitialRestored.current) {
+            let targetPage = initialPage;
+
+            // Use lastSeenCharOffset for resize restoration
+            const charOffsetToRestore = hasInitialRestored.current ? lastSeenCharOffset.current : (initialProgress?.chapterCharOffset ?? 0);
+
+            // Restoration prioritized by: charOffset > blockId > initialPage
+            if (charOffsetToRestore > 0) {
+                const index = fragments.findIndex((f, i) => {
+                    const nextF = fragments[i + 1];
+                    return charOffsetToRestore >= f.charOffset &&
+                           (!nextF || charOffsetToRestore < nextF.charOffset);
+                });
+                if (index !== -1) targetPage = index;
+            } else if (initialProgress?.blockId) {
+                const index = fragments.findIndex(f =>
+                    f.blocks.some(b => b.blockId === initialProgress.blockId)
+                );
+                if (index !== -1) targetPage = index;
+            }
+
+            if (targetPage !== currentPageIndex) {
+                setCurrentPageIndex(targetPage);
+            }
+
+            if (containerRef.current) {
+                if (isRTL) {
+                    scrollToPageRTL(containerRef.current, targetPage, viewportSize.width, 'instant' as any);
+                } else {
+                    containerRef.current.scrollTo({
+                        left: targetPage * viewportSize.width,
+                        behavior: 'instant' as any
+                    });
                 }
             }
+
             hasInitialRestored.current = true;
         }
-    }, [isMeasuring, fragments, initialProgress, isVertical, viewportSize]);
+    }, [isMeasuring, fragments, initialProgress, isVertical, isRTL, viewportSize, initialPage]);
 
     // Save scheduler
     const [isSaved, setIsSaved] = useState(true);
@@ -86,7 +115,13 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
         const updateSize = () => {
             if (containerRef.current) {
                 const { width, height } = containerRef.current.getBoundingClientRect();
-                setViewportSize({ width, height });
+                setViewportSize(prev => {
+                    if (prev.width !== width || prev.height !== height) {
+                        hasInitialRestored.current = false; // Trigger re-scroll on size change
+                        return { width, height };
+                    }
+                    return prev;
+                });
             }
         };
         updateSize();
@@ -98,26 +133,32 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
         if (!containerRef.current || fragments.length === 0) return;
         const clamped = Math.max(0, Math.min(page, fragments.length - 1));
 
-        const scrollOptions: ScrollToOptions = isVertical
-            ? { top: clamped * viewportSize.height, behavior: 'smooth' }
-            : { left: clamped * viewportSize.width, behavior: 'smooth' };
-
-        containerRef.current.scrollTo(scrollOptions);
+        if (isRTL) {
+            scrollToPageRTL(containerRef.current, clamped, viewportSize.width);
+        } else {
+            containerRef.current.scrollTo({
+                left: clamped * viewportSize.width,
+                behavior: 'smooth'
+            });
+        }
         setCurrentPageIndex(clamped);
-    }, [fragments.length, isVertical, viewportSize]);
+    }, [fragments.length, isRTL, viewportSize.width]);
 
     const handleScroll = useCallback(() => {
         if (!containerRef.current || isMeasuring) return;
-        const { scrollLeft, scrollTop, clientWidth, clientHeight } = containerRef.current;
 
-        const newIndex = isVertical
-            ? Math.round(scrollTop / clientHeight)
-            : Math.round(scrollLeft / clientWidth);
+        let newIndex: number;
+        if (isRTL) {
+            newIndex = getRTLPageIndex(containerRef.current, viewportSize.width);
+        } else {
+            const { scrollLeft, clientWidth } = containerRef.current;
+            newIndex = Math.round(scrollLeft / clientWidth);
+        }
 
         if (newIndex !== currentPageIndex && newIndex >= 0 && newIndex < fragments.length) {
             setCurrentPageIndex(newIndex);
         }
-    }, [currentPageIndex, fragments.length, isVertical, isMeasuring]);
+    }, [currentPageIndex, fragments.length, isMeasuring, isRTL, viewportSize.width]);
 
     const detectAndReportPosition = useCallback(() => {
         if (isMeasuring || fragments.length === 0 || !containerRef.current || !stats) return;
@@ -126,26 +167,26 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
         const currentFragment = fragments[currentPageIndex];
         if (!currentFragment) return;
 
-        // Since we split by top-level blocks, the first block in the fragment is our anchor
-        // We'll look for the first element with data-block-id in the current page
-        const pageElement = containerRef.current.children[currentPageIndex] as HTMLElement;
-        const blockElement = pageElement.querySelector('[data-block-id]');
+        // Find the first block in this fragment that has a blockId
+        const anchorBlock = currentFragment.blocks.find(b => b.blockId) || currentFragment.blocks[0];
+        if (!anchorBlock) return;
+
+        const blockId = anchorBlock.blockId || `ch${currentChapterIndex}-b${currentFragment.startIndex}`;
+        const blockLocalOffset = 0; // Anchored to start of fragment
+
+        // We need to get the element to extract context, but we can't rely on it for offset
+        const pageElement = containerRef.current.querySelector(`.reader-page:nth-child(${currentPageIndex + 1})`) as HTMLElement;
+        const blockElement = pageElement?.querySelector(`[data-block-id="${blockId}"]`) || pageElement?.firstElementChild;
         if (!blockElement) return;
 
-        const blockId = blockElement.getAttribute('data-block-id')!;
-        const blockLocalOffset = 0; // Anchored to start of page for now
         const contextSnippet = extractContextSnippet(blockElement, blockLocalOffset, 20);
-
-        const chapterCharOffset = calculateChapterCharOffset(
-            pageElement,
-            blockId,
-            blockLocalOffset,
-            currentChapterIndex
-        );
+        const chapterCharOffset = anchorBlock.charOffset;
 
         const progressCalc = calculateProgress(currentChapterIndex, chapterCharOffset, stats);
 
         setCurrentProgress(progressCalc.totalProgress);
+
+        lastSeenCharOffset.current = chapterCharOffset;
 
         onPositionUpdate?.({
             chapterIndex: currentChapterIndex,
@@ -171,17 +212,21 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
     }, [isMeasuring, fragments, currentPageIndex, currentChapterIndex, stats, onPositionUpdate]);
 
     useEffect(() => {
-        if (!isMeasuring) {
+        if (!isMeasuring && hasInitialRestored.current) {
             detectAndReportPosition();
         }
     }, [isMeasuring, currentPageIndex, currentChapterIndex, detectAndReportPosition]);
 
     const handleContentClick = useCallback(async (e: React.MouseEvent) => {
         const target = e.target as HTMLElement;
-        if (target.closest('button, .nav-btn, .reader-progress-bar, .dict-popup')) return;
+        if (target.closest('button, .nav-btn, .reader-progress-bar, .dict-popup, .selection-handle, .selection-toolbar')) return;
 
+        // Try lookup first, if successful it will consume the event
         const lookupSuccess = await tryLookup(e);
-        if (lookupSuccess) return;
+        if (lookupSuccess) {
+            e.stopPropagation();
+            return;
+        }
 
         if (settings.lnEnableClickZones && containerRef.current) {
             const rect = containerRef.current.getBoundingClientRect();
@@ -217,7 +262,7 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
         >
             <div
                 ref={containerRef}
-                className={`pages-container ${isVertical ? 'vertical' : 'horizontal'}`}
+                className={`pages-container ${isRTL ? 'rtl' : 'ltr'}`}
                 onScroll={handleScroll}
                 onClick={handleContentClick}
             >
@@ -230,9 +275,36 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
                                 ...typographyStyles
                             }}
                         >
-                            {fragment.blocks.map((blockHtml, bi) => (
-                                <div key={bi} dangerouslySetInnerHTML={{ __html: blockHtml }} />
-                            ))}
+                            {fragment.blocks.map((block, bi) => {
+                                const isTall = block.visualOffset !== undefined;
+                                const style: React.CSSProperties = isTall ? {
+                                    position: 'relative',
+                                    height: `${block.clippingHeight}px`,
+                                    overflow: 'hidden',
+                                } : { display: 'contents' };
+
+                                return (
+                                    <div
+                                        key={bi}
+                                        style={style}
+                                        data-block-id={block.blockId || undefined}
+                                        dangerouslySetInnerHTML={!isTall ? { __html: block.html } : undefined}
+                                    >
+                                        {isTall && (
+                                            <div
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: isVertical ? 0 : -block.visualOffset!,
+                                                    right: isVertical ? -block.visualOffset! : 0,
+                                                    width: isVertical ? 'auto' : '100%',
+                                                    height: isVertical ? '100%' : 'auto',
+                                                }}
+                                                dangerouslySetInnerHTML={{ __html: block.html }}
+                                            />
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 ))}
@@ -271,7 +343,7 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
                 enabled={!isMeasuring}
                 theme={(settings.lnTheme as 'light' | 'sepia' | 'dark' | 'black') || 'dark'}
                 onSelectionComplete={(text, startOffset, endOffset, blockId) => {
-                    if (onAddHighlight && currentChapterIndex && blockId) {
+                    if (onAddHighlight && blockId) {
                         onAddHighlight(currentChapterIndex, blockId, text, startOffset, endOffset);
                     }
                 }}

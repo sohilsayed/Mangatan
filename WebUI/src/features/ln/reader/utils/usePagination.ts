@@ -43,7 +43,7 @@ export function usePagination({
         const measureElements: HTMLDivElement[] = [];
         const styles = buildTypographyStyles(settings, isVertical);
 
-        for (const blockHtml of blocks) {
+        for (const block of blocks) {
             const tempDiv = document.createElement('div');
             tempDiv.style.visibility = 'hidden';
             tempDiv.style.position = 'absolute';
@@ -59,7 +59,7 @@ export function usePagination({
             }
 
             Object.assign(tempDiv.style, styles);
-            tempDiv.innerHTML = blockHtml;
+            tempDiv.innerHTML = block.html;
             container.appendChild(tempDiv);
             measureElements.push(tempDiv);
         }
@@ -77,9 +77,18 @@ export function usePagination({
         }));
 
         // Now measure all elements in one go (avoids layout thrashing)
-        for (const el of measureElements) {
-            const rect = el.getBoundingClientRect();
-            sizes.push(isVertical ? rect.width : rect.height);
+        // For very large chapters, we can split measurement into small batches to avoid long UI freezes
+        const BATCH_SIZE = 100;
+        for (let i = 0; i < measureElements.length; i += BATCH_SIZE) {
+            const batch = measureElements.slice(i, i + BATCH_SIZE);
+            for (const el of batch) {
+                const rect = el.getBoundingClientRect();
+                sizes.push(isVertical ? rect.width : rect.height);
+            }
+            // Yield to main thread briefly if it's a long measurement
+            if (measureElements.length > BATCH_SIZE) {
+                await new Promise(resolve => setTimeout(resolve, 0));
+            }
         }
 
         // Clean up

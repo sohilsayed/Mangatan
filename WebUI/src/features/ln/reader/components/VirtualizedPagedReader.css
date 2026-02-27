@@ -16,6 +16,11 @@
     -ms-overflow-style: none;
 }
 
+/* RTL support for vertical text */
+.pages-container.rtl {
+    direction: rtl;
+}
+
 .pages-container::-webkit-scrollbar {
     display: none;
 }
