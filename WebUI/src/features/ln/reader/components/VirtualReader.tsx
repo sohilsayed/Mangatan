@@ -3,6 +3,7 @@
 import React, { ReactNode, useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Settings } from '@/Manatan/types';
 import { PagedReader } from './PagedReader';
+import { VirtualizedPagedReader } from './VirtualizedPagedReader';
 import { ContinuousReader } from './ContinuousReader';
 import { useUIVisibility } from '../hooks/useUIVisibility';
 import { injectHighlightsIntoHtml } from '../utils/injectHighlights';
@@ -308,7 +309,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     return (
         <>
             {isPaged ? (
-                <PagedReader
+                <VirtualizedPagedReader
                     key={`paged-${readerKey}`}
                     {...commonProps}
                     initialPage={currentPage}
