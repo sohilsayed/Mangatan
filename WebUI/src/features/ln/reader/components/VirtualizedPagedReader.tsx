@@ -55,8 +55,18 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
     });
 
     useEffect(() => {
-        hasInitialRestored.current = false;
-    }, [currentChapterIndex]);
+        if (currentChapterIndex !== initialChapter) {
+            setCurrentChapterIndex(initialChapter);
+            hasInitialRestored.current = false;
+        }
+    }, [initialChapter]);
+
+    useEffect(() => {
+        // Reset restoration when blockId changes (from search/highlights)
+        if (initialProgress?.blockId) {
+            hasInitialRestored.current = false;
+        }
+    }, [initialProgress?.blockId]);
 
     useEffect(() => {
         if (!isMeasuring && fragments.length > 0 && !hasInitialRestored.current) {
@@ -283,14 +293,9 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
                                     overflow: 'hidden',
                                 } : { display: 'contents' };
 
-                                return (
-                                    <div
-                                        key={bi}
-                                        style={style}
-                                        data-block-id={block.blockId || undefined}
-                                        dangerouslySetInnerHTML={!isTall ? { __html: block.html } : undefined}
-                                    >
-                                        {isTall && (
+                                if (isTall) {
+                                    return (
+                                        <div key={bi} style={style} data-block-id={block.blockId || undefined}>
                                             <div
                                                 style={{
                                                     position: 'absolute',
@@ -301,8 +306,17 @@ export const VirtualizedPagedReader: React.FC<PagedReaderProps> = ({
                                                 }}
                                                 dangerouslySetInnerHTML={{ __html: block.html }}
                                             />
-                                        )}
-                                    </div>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div
+                                        key={bi}
+                                        style={style}
+                                        data-block-id={block.blockId || undefined}
+                                        dangerouslySetInnerHTML={{ __html: block.html }}
+                                    />
                                 );
                             })}
                         </div>
