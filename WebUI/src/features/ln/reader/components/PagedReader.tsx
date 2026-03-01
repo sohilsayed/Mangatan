@@ -482,7 +482,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
             // Apply initial scroll position
             if (viewportRef.current) {
-                const offset = targetPage * actualPageSize;
+                const offset = targetPage * pageSize;
                 viewportRef.current.scrollLeft = isRTL ? -offset : offset;
             }
 
