@@ -64,6 +64,8 @@ export function detectVisibleBlockPaged(
         let viewportEnd: number;
 
         const absScrollLeft = Math.abs(currentScrollLeft);
+        // We use viewport-relative rects. Since the viewport scrolls,
+        // rect.left + absScrollLeft gives the absolute position in content.
         blockPosition = rect.left - containerRect.left + absScrollLeft;
         viewportStart = absScrollLeft;
         viewportEnd = absScrollLeft + containerRect.width;

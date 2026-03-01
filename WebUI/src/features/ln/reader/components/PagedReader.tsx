@@ -265,14 +265,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const layout = useMemo(() => {
         if (dimensions.width === 0 || dimensions.height === 0) return null;
 
-        const gap = isVertical ? 0 : 80;
         const padding = settings.lnPageMargin || 24;
+        const gap = padding * 2; // Gap matches total horizontal padding of one page
 
         const contentW = dimensions.width - (padding * 2);
         const contentH = dimensions.height - (padding * 2) - safeAreaTopOffsetPx;
 
-        // For horizontal text, we use CSS columns which fragment content into horizontal pages.
-        // For vertical text (Japanese), the text naturally flows horizontally (right-to-left).
+        // One column is exactly one page width
         const columnWidth = contentW;
 
         return {
@@ -324,6 +323,9 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             width: 'max-content',
             minWidth: `${layout.contentW}px`,
             textAlign: settings.lnTextAlign || 'justify',
+            columnWidth: `${layout.columnWidth}px`,
+            columnGap: `${layout.gap}px`,
+            columnFill: 'auto',
         };
 
         if (isVertical) {
@@ -338,9 +340,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         } else {
             return {
                 ...commonStyles,
-                columnWidth: `${layout.columnWidth}px`,
-                columnGap: `${layout.gap}px`,
-                columnFill: 'auto',
                 overflowWrap: 'break-word',
                 wordBreak: 'break-word',
             };
@@ -457,12 +456,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             void currentContent.offsetHeight;
             void currentContent.scrollWidth;
 
-            // Use calculated layout values for consistent paging
-            const pageSize = isVertical ? (layout.contentW + layout.gap) : (layout.columnWidth + layout.gap);
+            // Standardize paging on full viewport width
+            const pageSize = layout.width;
             setMeasuredPageSize(pageSize);
 
             // Force reflow and measure total horizontal scrollable area
-            const scrollSize = currentContent.scrollWidth;
+            const scrollSize = currentContent.scrollWidth + layout.padding;
             const calculatedPages = Math.max(1, Math.ceil(scrollSize / pageSize));
 
             setTotalPages(calculatedPages);
@@ -1188,10 +1187,6 @@ useEffect(() => {
                     position: 'absolute',
                     inset: 0,
                     clipPath: 'inset(0px)',
-                    paddingTop: `calc(${layout.padding}px + ${safeAreaTopInset ?? '0px'})`,
-                    paddingRight: `${layout.padding}px`,
-                    paddingBottom: `${layout.padding}px`,
-                    paddingLeft: `${layout.padding}px`,
                     direction: isRTL ? 'rtl' : 'ltr',
                 }}
                 onScroll={handleScroll}
@@ -1201,14 +1196,24 @@ useEffect(() => {
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
-                {/* Content */}
+                {/* Content Container (Handles Padding) */}
                 <div
-                    ref={contentRef}
-                    className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
-                    lang={isKorean ? "ko" : undefined}
-                    style={contentStyle}
-                    dangerouslySetInnerHTML={{ __html: currentHtml }}
-                />
+                    style={{
+                        paddingTop: `calc(${layout.padding}px + ${safeAreaTopInset ?? '0px'})`,
+                        paddingRight: `${layout.padding}px`,
+                        paddingBottom: `${layout.padding}px`,
+                        paddingLeft: `${layout.padding}px`,
+                        width: 'max-content',
+                    }}
+                >
+                    <div
+                        ref={contentRef}
+                        className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                        lang={isKorean ? "ko" : undefined}
+                        style={contentStyle}
+                        dangerouslySetInnerHTML={{ __html: currentHtml }}
+                    />
+                </div>
 
                 {/* Native Scroll-Snap Points */}
                 {contentReady && Array.from({ length: totalPages }).map((_, i) => (
