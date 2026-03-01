@@ -33,7 +33,7 @@ export interface DetectedBlock {
  * @param blockMaps - Optional blockMaps for precise character offset calculation
  */
 export function detectVisibleBlockPaged(
-    container: HTMLElement,
+    viewport: HTMLElement,
     pageIndex: number,
     pageSize: number,
     isVertical: boolean,
@@ -41,15 +41,16 @@ export function detectVisibleBlockPaged(
     blockMaps?: BlockIndexMap[]
 ): DetectedBlock | null {
     // Get all blocks
-    const allBlocks = container.querySelectorAll('[data-block-id]');
+    const allBlocks = viewport.querySelectorAll('[data-block-id]');
 
     if (allBlocks.length === 0) {
-        console.warn('[pagedPosition] No blocks found in container');
+        console.warn('[pagedPosition] No blocks found in viewport');
         return null;
     }
 
-    const containerRect = container.getBoundingClientRect();
-    const scrollOffset = pageIndex * pageSize;
+    const containerRect = viewport.getBoundingClientRect();
+    const currentScrollTop = viewport.scrollTop;
+    const currentScrollLeft = viewport.scrollLeft;
 
     let bestBlock: Element | null = null;
     let bestDistance = Infinity;
@@ -63,15 +64,14 @@ export function detectVisibleBlockPaged(
         let viewportEnd: number;
 
         if (isVertical) {
-            // Vertical mode: transforms are translateY
-            blockPosition = rect.top - containerRect.top + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.height;
+            blockPosition = rect.top - containerRect.top + currentScrollTop;
+            viewportStart = currentScrollTop;
+            viewportEnd = currentScrollTop + containerRect.height;
         } else {
-            // Horizontal mode: transforms are translateX
-            blockPosition = rect.left - containerRect.left + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.width;
+            const absScrollLeft = Math.abs(currentScrollLeft);
+            blockPosition = rect.left - containerRect.left + absScrollLeft;
+            viewportStart = absScrollLeft;
+            viewportEnd = absScrollLeft + containerRect.width;
         }
 
         const blockSize = isVertical ? rect.height : rect.width;
@@ -110,14 +110,13 @@ export function detectVisibleBlockPaged(
         let readRatio: number;
 
         if (isVertical) {
-            const scrollTop = pageIndex * pageSize;
-            const blockTop = blockRect.top - containerRect.top + scrollTop;
-            const readAmount = scrollTop - blockTop;
+            const blockTop = blockRect.top - containerRect.top + currentScrollTop;
+            const readAmount = currentScrollTop - blockTop;
             readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
         } else {
-            const scrollLeft = pageIndex * pageSize;
-            const blockLeft = blockRect.left - containerRect.left + scrollLeft;
-            const readAmount = scrollLeft - blockLeft;
+            const absScrollLeft = Math.abs(currentScrollLeft);
+            const blockLeft = blockRect.left - containerRect.left + absScrollLeft;
+            const readAmount = absScrollLeft - blockLeft;
             readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
         }
 

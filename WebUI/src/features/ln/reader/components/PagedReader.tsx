@@ -304,17 +304,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         [settings, isVertical]
     );
 
-    // Memoized transform - only recalculate when page actually changes
-    const transform = useMemo(() => {
-        const effectivePageSize = measuredPageSize > 0
-            ? measuredPageSize
-            : (layout?.columnWidth || 0) + (layout?.gap || 80);
-        const pageOffset = Math.round(currentPage * effectivePageSize);
-        return isVertical
-            ? `translateY(-${pageOffset}px)`
-            : `translateX(-${pageOffset}px)`;
-    }, [currentPage, measuredPageSize, layout?.columnWidth, layout?.gap, isVertical]);
-
     // Memoized content style to prevent re-renders on UI toggle
     const contentStyle = useMemo(() => {
         if (!layout) return {};
@@ -334,11 +323,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             boxSizing: 'border-box',
             overflowWrap: 'break-word',
             wordBreak: 'break-word',
-            transform: transform,
-            transition: settings.lnDisableAnimations
-                ? 'none'
-                : 'transform 0.3s ease-out',
-            willChange: 'transform',
             ...(isVertical
                 ? {
                     writingMode: 'vertical-rl',
@@ -357,8 +341,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     }, [
         typographyStyles,
         layout,
-        transform,
-        settings.lnDisableAnimations,
         settings.lnTextBrightness,
         theme.fg,
         isVertical
@@ -491,10 +473,23 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             const intent = navigationIntentRef.current;
             navigationIntentRef.current = null;
 
+            let targetPage = currentPage;
             if (intent?.goToLastPage) {
-                setCurrentPage(calculatedPages - 1);
+                targetPage = calculatedPages - 1;
             } else {
-                setCurrentPage(p => Math.min(p, calculatedPages - 1));
+                targetPage = Math.min(currentPage, calculatedPages - 1);
+            }
+
+            setCurrentPage(targetPage);
+
+            // Apply initial scroll position
+            if (viewportRef.current) {
+                const offset = targetPage * actualPageSize;
+                if (isVertical) {
+                    viewportRef.current.scrollTop = offset;
+                } else {
+                    viewportRef.current.scrollLeft = isRTL ? -offset : offset;
+                }
             }
 
             requestAnimationFrame(() => {
@@ -739,12 +734,43 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     // Navigation
     // ========================================================================
 
-    const goToPage = useCallback((page: number) => {
+    const goToPage = useCallback((page: number, behavior: ScrollBehavior = 'smooth') => {
         const clamped = Math.max(0, Math.min(page, totalPages - 1));
+
+        if (viewportRef.current && measuredPageSize > 0) {
+            const offset = Math.round(clamped * measuredPageSize);
+            const scrollOptions: ScrollToOptions = {
+                behavior: settings.lnDisableAnimations ? 'auto' : behavior,
+            };
+
+            if (isVertical) {
+                scrollOptions.top = offset;
+            } else {
+                scrollOptions.left = isRTL
+                    ? -(offset)
+                    : offset;
+            }
+
+            viewportRef.current.scrollTo(scrollOptions);
+        }
+
         if (clamped !== currentPage) {
             setCurrentPage(clamped);
         }
-    }, [totalPages, currentPage]);
+    }, [totalPages, currentPage, measuredPageSize, isVertical, isRTL, settings.lnDisableAnimations]);
+
+    const handleScroll = useCallback(() => {
+        if (!viewportRef.current || measuredPageSize <= 0 || isTransitioning) return;
+
+        const viewport = viewportRef.current;
+        const scrollOffset = isVertical ? viewport.scrollTop : Math.abs(viewport.scrollLeft);
+        const newPage = Math.round(scrollOffset / measuredPageSize);
+        const clamped = Math.max(0, Math.min(newPage, totalPages - 1));
+
+        if (clamped !== currentPage) {
+            setCurrentPage(clamped);
+        }
+    }, [measuredPageSize, isVertical, totalPages, currentPage, isTransitioning]);
 
     const goToSection = useCallback((section: number, goToLastPage = false) => {
         const clamped = Math.max(0, Math.min(section, chapters.length - 1));
@@ -1169,17 +1195,18 @@ useEffect(() => {
             {/* Viewport */}
             <div
                 ref={viewportRef}
-                className="paged-viewport"
+                className={`paged-viewport ${isVertical ? 'vertical-text' : ''}`}
                 style={{
                     position: 'absolute',
                     inset: 0,
-                    overflow: 'hidden',
                     clipPath: 'inset(0px)',
                     paddingTop: `calc(${layout.padding}px + ${safeAreaTopInset ?? '0px'})`,
                     paddingRight: `${layout.padding}px`,
                     paddingBottom: `${layout.padding}px`,
                     paddingLeft: `${layout.padding}px`,
+                    direction: isRTL ? 'rtl' : 'ltr',
                 }}
+                onScroll={handleScroll}
                 onClick={handleContentClick}
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
