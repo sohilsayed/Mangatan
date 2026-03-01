@@ -28,12 +28,6 @@
     -webkit-overflow-scrolling: touch;
 }
 
-.paged-viewport.vertical-text {
-    overflow-x: hidden;
-    overflow-y: auto;
-    scroll-snap-type: y mandatory;
-}
-
 /* Hide scrollbars but keep functionality */
 .paged-viewport::-webkit-scrollbar {
     display: none;
@@ -60,10 +54,6 @@
     widows: 2;
 }
 
-.paged-content > * {
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-}
 
 /* Break avoidance */
 .paged-content p,
@@ -88,6 +78,7 @@
 
 .paged-content p {
     margin: 0 0 1em 0;
+    text-align: inherit;
 }
 
 .paged-content h1,

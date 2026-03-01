@@ -63,16 +63,10 @@ export function detectVisibleBlockPaged(
         let viewportStart: number;
         let viewportEnd: number;
 
-        if (isVertical) {
-            blockPosition = rect.top - containerRect.top + currentScrollTop;
-            viewportStart = currentScrollTop;
-            viewportEnd = currentScrollTop + containerRect.height;
-        } else {
-            const absScrollLeft = Math.abs(currentScrollLeft);
-            blockPosition = rect.left - containerRect.left + absScrollLeft;
-            viewportStart = absScrollLeft;
-            viewportEnd = absScrollLeft + containerRect.width;
-        }
+        const absScrollLeft = Math.abs(currentScrollLeft);
+        blockPosition = rect.left - containerRect.left + absScrollLeft;
+        viewportStart = absScrollLeft;
+        viewportEnd = absScrollLeft + containerRect.width;
 
         const blockSize = isVertical ? rect.height : rect.width;
         const blockEnd = blockPosition + blockSize;
@@ -109,16 +103,10 @@ export function detectVisibleBlockPaged(
     if (blockChars > 0) {
         let readRatio: number;
 
-        if (isVertical) {
-            const blockTop = blockRect.top - containerRect.top + currentScrollTop;
-            const readAmount = currentScrollTop - blockTop;
-            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
-        } else {
-            const absScrollLeft = Math.abs(currentScrollLeft);
-            const blockLeft = blockRect.left - containerRect.left + absScrollLeft;
-            const readAmount = absScrollLeft - blockLeft;
-            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
-        }
+        const absScrollLeft = Math.abs(currentScrollLeft);
+        const blockLeft = blockRect.left - containerRect.left + absScrollLeft;
+        const readAmount = absScrollLeft - blockLeft;
+        readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
 
         blockLocalOffset = Math.floor(blockChars * readRatio);
     }
@@ -166,13 +154,9 @@ export function findPageForBlock(
     const blockRect = block.getBoundingClientRect();
 
     // Calculate block's position in the scrollable content
-    let blockPosition: number;
-
-    if (isVertical) {
-        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
-    } else {
-        blockPosition = blockRect.left - containerRect.left + (container.scrollLeft || 0);
-    }
+    // Both modes now use horizontal scrolling
+    const absScrollLeft = Math.abs(container.scrollLeft);
+    const blockPosition = blockRect.left - containerRect.left + absScrollLeft;
 
     return Math.floor(blockPosition / pageSize);
 }

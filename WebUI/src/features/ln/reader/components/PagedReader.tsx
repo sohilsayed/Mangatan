@@ -265,13 +265,15 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const layout = useMemo(() => {
         if (dimensions.width === 0 || dimensions.height === 0) return null;
 
-        const gap =160;
+        const gap = isVertical ? 0 : 80;
         const padding = settings.lnPageMargin || 24;
 
         const contentW = dimensions.width - (padding * 2);
         const contentH = dimensions.height - (padding * 2) - safeAreaTopOffsetPx;
 
-        const columnWidth = isVertical ? contentH : contentW;
+        // For horizontal text, we use CSS columns which fragment content into horizontal pages.
+        // For vertical text (Japanese), the text naturally flows horizontally (right-to-left).
+        const columnWidth = contentW;
 
         return {
             gap,
@@ -314,34 +316,40 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             ? theme.fg 
             : adjustBrightness(theme.fg, brightness);
         
-        return {
+        const commonStyles: React.CSSProperties = {
             ...typographyStyles,
             color: textColor,
-            columnWidth: `${layout.columnWidth}px`,
-            columnGap: `${layout.gap}px`,
-            columnFill: 'auto',
             boxSizing: 'border-box',
-            overflowWrap: 'break-word',
-            wordBreak: 'break-word',
-            ...(isVertical
-                ? {
-                    writingMode: 'vertical-rl',
-                    textOrientation: 'mixed',
-                    width: `${layout.contentW}px`,
-                    height: 'auto',
-                    minHeight: `${layout.contentH}px`,
-                }
-                : {
-                    height: `${layout.contentH}px`,
-                    width: 'auto',
-                    minWidth: `${layout.contentW}px`,
-                }
-            ),
+            height: `${layout.contentH}px`,
+            width: 'max-content',
+            minWidth: `${layout.contentW}px`,
+            textAlign: settings.lnTextAlign || 'justify',
         };
+
+        if (isVertical) {
+            return {
+                ...commonStyles,
+                writingMode: 'vertical-rl',
+                textOrientation: 'mixed',
+                textJustify: 'inter-ideograph',
+                overflowWrap: 'normal',
+                wordBreak: 'normal',
+            };
+        } else {
+            return {
+                ...commonStyles,
+                columnWidth: `${layout.columnWidth}px`,
+                columnGap: `${layout.gap}px`,
+                columnFill: 'auto',
+                overflowWrap: 'break-word',
+                wordBreak: 'break-word',
+            };
+        }
     }, [
         typographyStyles,
         layout,
         settings.lnTextBrightness,
+        settings.lnTextAlign,
         theme.fg,
         isVertical
     ]);
@@ -449,23 +457,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             void currentContent.offsetHeight;
             void currentContent.scrollWidth;
 
-            // Get actual values from browser
-            const computedStyle = window.getComputedStyle(currentContent);
-            const actualColumnWidth = parseFloat(computedStyle.columnWidth) || layout.columnWidth;
-            const actualGap = parseFloat(computedStyle.columnGap) || layout.gap;
-            const actualPageSize = actualColumnWidth + actualGap;
+            // Use calculated layout values for consistent paging
+            const pageSize = isVertical ? (layout.contentW + layout.gap) : (layout.columnWidth + layout.gap);
+            setMeasuredPageSize(pageSize);
 
-            setMeasuredPageSize(actualPageSize);
-
-            // Calculate total pages
-            const scrollSize = isVertical
-                ? currentContent.scrollHeight
-                : currentContent.scrollWidth;
-
-            let calculatedPages = 1;
-            if (scrollSize > actualColumnWidth) {
-                calculatedPages = Math.max(1, Math.ceil((scrollSize - 1) / actualPageSize));
-            }
+            // Force reflow and measure total horizontal scrollable area
+            const scrollSize = currentContent.scrollWidth;
+            const calculatedPages = Math.max(1, Math.ceil(scrollSize / pageSize));
 
             setTotalPages(calculatedPages);
 
@@ -485,11 +483,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             // Apply initial scroll position
             if (viewportRef.current) {
                 const offset = targetPage * actualPageSize;
-                if (isVertical) {
-                    viewportRef.current.scrollTop = offset;
-                } else {
-                    viewportRef.current.scrollLeft = isRTL ? -offset : offset;
-                }
+                viewportRef.current.scrollLeft = isRTL ? -offset : offset;
             }
 
             requestAnimationFrame(() => {
@@ -743,13 +737,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 behavior: settings.lnDisableAnimations ? 'auto' : behavior,
             };
 
-            if (isVertical) {
-                scrollOptions.top = offset;
-            } else {
-                scrollOptions.left = isRTL
-                    ? -(offset)
-                    : offset;
-            }
+            scrollOptions.left = isRTL ? -offset : offset;
 
             viewportRef.current.scrollTo(scrollOptions);
         }
@@ -763,7 +751,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         if (!viewportRef.current || measuredPageSize <= 0 || isTransitioning) return;
 
         const viewport = viewportRef.current;
-        const scrollOffset = isVertical ? viewport.scrollTop : Math.abs(viewport.scrollLeft);
+        const scrollOffset = Math.abs(viewport.scrollLeft);
         const newPage = Math.round(scrollOffset / measuredPageSize);
         const clamped = Math.max(0, Math.min(newPage, totalPages - 1));
 
@@ -1195,7 +1183,7 @@ useEffect(() => {
             {/* Viewport */}
             <div
                 ref={viewportRef}
-                className={`paged-viewport ${isVertical ? 'vertical-text' : ''}`}
+                className="paged-viewport"
                 style={{
                     position: 'absolute',
                     inset: 0,
@@ -1221,6 +1209,22 @@ useEffect(() => {
                     style={contentStyle}
                     dangerouslySetInnerHTML={{ __html: currentHtml }}
                 />
+
+                {/* Native Scroll-Snap Points */}
+                {contentReady && Array.from({ length: totalPages }).map((_, i) => (
+                    <div
+                        key={i}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: isRTL ? -(i * measuredPageSize) : (i * measuredPageSize),
+                            width: measuredPageSize,
+                            height: '1px',
+                            scrollSnapAlign: 'start',
+                            pointerEvents: 'none',
+                        }}
+                    />
+                ))}
             </div>
 
             {/* Loading Overlay */}
