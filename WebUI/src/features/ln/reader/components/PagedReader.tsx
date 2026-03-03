@@ -290,9 +290,9 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         const contentW = dimensions.width - (padding * 2);
         const contentH = dimensions.height - (padding * 2) - safeAreaTopOffsetPx;
 
-        // For vertical text (vertical-rl), column-width property sets the column HEIGHT.
-        // For horizontal text, it sets the column WIDTH.
-        const columnWidth = isVertical ? contentH : contentW;
+        // Column width should always be the viewport content width.
+        // In vertical-rl, we want vertical strips of this width stacking left.
+        const columnWidth = contentW;
 
         return {
             gap,
@@ -968,10 +968,10 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                         if (element && measureRef.current && computedPages.pageSize > 0) {
                             const rect = element.getBoundingClientRect();
                             const contentRect = measureRef.current.getBoundingClientRect();
-                            const linkOffset = isVertical
+                            const linkOffsetVal = isVertical
                                 ? contentRect.right - rect.right
                                 : rect.top - contentRect.top;
-                            const targetPage = Math.floor(Math.abs(linkOffset) / computedPages.pageSize);
+                            const targetPage = Math.floor(Math.abs(linkOffsetVal) / computedPages.pageSize);
                             goToPage(Math.max(0, Math.min(targetPage, computedPages.totalPages - 1)));
                         }
                     }, 100);
@@ -985,10 +985,10 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                         if (element && measureRef.current && computedPages.pageSize > 0) {
                                 const rect = element.getBoundingClientRect();
                                 const contentRect = measureRef.current.getBoundingClientRect();
-                                const linkOffset = isVertical
+                                const linkOffsetVal = isVertical
                                     ? contentRect.right - rect.right
                                     : rect.top - contentRect.top;
-                            const targetPage = Math.floor(Math.abs(linkOffset) / computedPages.pageSize);
+                            const targetPage = Math.floor(Math.abs(linkOffsetVal) / computedPages.pageSize);
                             goToPage(Math.max(0, Math.min(targetPage, computedPages.totalPages - 1)));
                             }
                         }, 500);
@@ -1140,11 +1140,14 @@ useEffect(() => {
                             width: 'auto',
                             minWidth: `${layout.contentW}px`,
                             height: `${layout.contentH}px`,
+                            right: 0,
                         }
                         : {
                             width: `${layout.contentW}px`,
                             height: 'auto',
                             minHeight: `${layout.contentH}px`,
+                            left: 0,
+                            top: 0,
                         }
                     ),
                 }}
@@ -1201,9 +1204,8 @@ useEffect(() => {
                             contain: 'strict',
                             contentVisibility: isCurrentPage ? 'visible' : 'auto',
                             pointerEvents: isCurrentPage ? 'auto' : 'none',
-                            // Ensure vertical text starts on the right
-                            display: isVertical ? 'flex' : 'block',
-                            justifyContent: isVertical ? 'flex-end' : 'flex-start',
+                            // Remove flex as it can break column expansion
+                            display: 'block',
                         }}
                         onClick={isCurrentPage ? handleContentClick : undefined}
                         onPointerDown={isCurrentPage ? handlePointerDown : undefined}
@@ -1228,18 +1230,22 @@ useEffect(() => {
                                 wordBreak: 'break-word',
                                 transform: contentTransform,
                                 willChange: 'transform',
+                                position: 'absolute',
                                 ...(isVertical
                                     ? {
                                         writingMode: 'vertical-rl',
                                         textOrientation: 'mixed',
-                                        width: 'auto', // Changed to auto for horizontal paging
+                                        width: 'auto',
                                         minWidth: `${layout.contentW}px`,
                                         height: `${layout.contentH}px`,
+                                        right: 0, // Align to right for vertical-rl expansion
                                     }
                                     : {
                                         width: `${layout.contentW}px`,
-                                        height: 'auto', // Changed to auto for vertical paging
+                                        height: 'auto',
                                         minHeight: `${layout.contentH}px`,
+                                        left: 0,
+                                        top: 0,
                                     }
                                 ),
                             }}

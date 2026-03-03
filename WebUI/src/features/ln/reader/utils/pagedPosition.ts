@@ -49,41 +49,27 @@ export function detectVisibleBlockPaged(
     }
 
     const containerRect = container.getBoundingClientRect();
+    // scrollOffset is the virtual position in the untransformed chapter layout
     const scrollOffset = pageIndex * pageSize;
 
     let bestBlock: Element | null = null;
     let bestDistance = Infinity;
 
-    // Find block closest to the reading edge
+    // Find block closest to the reading edge (top for horizontal, right for vertical)
     for (const block of allBlocks) {
         const rect = block.getBoundingClientRect();
 
-        let blockPosition: number;
-        let viewportStart: number;
-        let viewportEnd: number;
-
-        if (isVertical) {
-            // Vertical text (vertical-rl): pages are laid out from right to left.
-            // Page 0 right edge is at content right edge.
-            // Page N horizontal offset = N * pageSize (measured from right to left).
-            blockPosition = containerRect.right - rect.right + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.width;
-        } else {
-            // Horizontal text now uses vertical paging (translateY)
-            blockPosition = rect.top - containerRect.top + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.height;
-        }
-
-        const blockSize = isVertical ? rect.height : rect.width;
-        const blockEnd = blockPosition + blockSize;
-
-        // Check if block is visible on current page
-        const isVisible = blockEnd > viewportStart && blockPosition < viewportEnd;
+        // Check if block is physically visible in this viewport
+        const isVisible = isVertical
+            ? (rect.right > containerRect.left - 1 && rect.left < containerRect.right + 1)
+            : (rect.bottom > containerRect.top - 1 && rect.top < containerRect.bottom + 1);
 
         if (isVisible) {
-            const distance = Math.abs(blockPosition - viewportStart);
+            // Distance from the "start" edge of the viewport
+            const distance = isVertical
+                ? Math.abs(containerRect.right - rect.right)
+                : Math.abs(rect.top - containerRect.top);
+
             if (distance < bestDistance) {
                 bestDistance = distance;
                 bestBlock = block;
@@ -156,7 +142,8 @@ export function detectVisibleBlockPaged(
 }
 
 /**
- * Find which page contains a specific block
+ * Find which page contains a specific block.
+ * Should be called on the untransformed measurement container.
  */
 export function findPageForBlock(
     container: HTMLElement,
@@ -170,17 +157,19 @@ export function findPageForBlock(
     const containerRect = container.getBoundingClientRect();
     const blockRect = block.getBoundingClientRect();
 
-    // Calculate block's position in the scrollable content
-    let blockPosition: number;
+    let offsetFromStart: number;
 
     if (isVertical) {
-        // Measured from right for vertical-rl
-        blockPosition = containerRect.right - blockRect.right + (container.scrollLeft || 0);
+        // Japanese: distance from right edge.
+        // We use Math.abs because RTL coordinates can sometimes be tricky depending on browser.
+        offsetFromStart = Math.abs(containerRect.right - blockRect.right) + (container.scrollLeft || 0);
     } else {
-        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
+        // English: distance from top edge
+        offsetFromStart = Math.abs(blockRect.top - containerRect.top) + (container.scrollTop || 0);
     }
 
-    return Math.floor(blockPosition / pageSize);
+    // Use a small epsilon (1px) to avoid float rounding issues
+    return Math.floor((offsetFromStart + 1) / pageSize);
 }
 
 /**
