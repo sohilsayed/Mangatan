@@ -588,7 +588,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
     useEffect(() => {
         if (!contentReady) return;
-        if (!contentRef.current) return;
+        if (!measureRef.current) return;
         if (computedPages.pageSize <= 0) return;
 
         // Create a unique key for this layout state
@@ -607,9 +607,9 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             await new Promise(resolve => requestAnimationFrame(resolve));
 
             // Verify blocks exist for the anchor chapter
-            const blocks = contentRef.current.querySelectorAll(`[data-block-id^="ch${anchorChapter}-b"]`);
+            const blocks = measureRef.current?.querySelectorAll(`[data-block-id^="ch${anchorChapter}-b"]`);
             
-            if (blocks.length === 0) {
+            if (!blocks || blocks.length === 0) {
                 console.log('[PagedReader] No blocks found for chapter', anchorChapter, '- skipping restoration');
                 lastRestoreKeyRef.current = restoreKey;
                 return;
@@ -625,7 +625,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 return;
             }
 
-            let blockEl = contentRef.current.querySelector(
+            let blockEl = measureRef.current?.querySelector(
                 `[data-block-id="${anchorBlockId}"]`
             ) as HTMLElement | null;
 
@@ -634,7 +634,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 const pos = getPositionFromCharOffset(chapterLookup, anchor.chapterCharOffset);
                 
                 if (pos) {
-                    blockEl = contentRef.current.querySelector(
+                    blockEl = measureRef.current?.querySelector(
                         `[data-block-id="${pos.blockId}"]`
                     ) as HTMLElement | null;
                     
@@ -648,7 +648,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 }
             }
 
-            if (!blockEl) {
+            if (!blockEl || !measureRef.current) {
                 console.log('[PagedReader] Block element not found - skipping restoration');
                 lastRestoreKeyRef.current = restoreKey;
                 restorePendingRef.current = false;
@@ -656,20 +656,16 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             }
 
             const blockRect = blockEl.getBoundingClientRect();
-            const contentRect = contentRef.current.getBoundingClientRect();
-
-            // Match your existing logic (vertical uses translateY, horizontal uses translateX)
-            const offset = isVertical
-                ? (blockRect.top - contentRect.top)
-                : (blockRect.left - contentRect.left);
+            const contentRect = measureRef.current.getBoundingClientRect();
 
             // Calculate which page the block is on based on its offset from content start
             // Note: blockRect and contentRect are from the measurement div which has no transform.
-            const offset = isVertical
+            const restorationOffset = isVertical
                 ? (contentRect.right - blockRect.right) // horizontal offset for vertical-rl
                 : (blockRect.top - contentRect.top);    // vertical offset for horizontal text
 
-            const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
+            const targetPage = Math.floor(Math.abs(restorationOffset) / computedPages.pageSize);
+
             const clamped = Math.max(0, Math.min(targetPage, computedPages.totalPages - 1));
 
             // Mark as restored for this layout
@@ -969,13 +965,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     // Same chapter, scroll to anchor
                     setTimeout(() => {
                         const element = document.getElementById(anchor);
-                        if (element && contentRef.current && computedPages.pageSize > 0) {
+                        if (element && measureRef.current && computedPages.pageSize > 0) {
                             const rect = element.getBoundingClientRect();
-                            const contentRect = contentRef.current.getBoundingClientRect();
-                            const offset = isVertical
-                                ? rect.top - contentRect.top
-                                : rect.left - contentRect.left;
-                            const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
+                            const contentRect = measureRef.current.getBoundingClientRect();
+                            const linkOffset = isVertical
+                                ? contentRect.right - rect.right
+                                : rect.top - contentRect.top;
+                            const targetPage = Math.floor(Math.abs(linkOffset) / computedPages.pageSize);
                             goToPage(Math.max(0, Math.min(targetPage, computedPages.totalPages - 1)));
                         }
                     }, 100);
@@ -986,13 +982,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     if (anchor) {
                         setTimeout(() => {
                             const element = document.getElementById(anchor);
-                        if (element && contentRef.current && computedPages.pageSize > 0) {
+                        if (element && measureRef.current && computedPages.pageSize > 0) {
                                 const rect = element.getBoundingClientRect();
-                                const contentRect = contentRef.current.getBoundingClientRect();
-                                const offset = isVertical
-                                    ? rect.top - contentRect.top
-                                    : rect.left - contentRect.left;
-                            const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
+                                const contentRect = measureRef.current.getBoundingClientRect();
+                                const linkOffset = isVertical
+                                    ? contentRect.right - rect.right
+                                    : rect.top - contentRect.top;
+                            const targetPage = Math.floor(Math.abs(linkOffset) / computedPages.pageSize);
                             goToPage(Math.max(0, Math.min(targetPage, computedPages.totalPages - 1)));
                             }
                         }, 500);
