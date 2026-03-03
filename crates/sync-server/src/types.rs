@@ -6,10 +6,10 @@ use serde::{Deserialize, Serialize};
 // Light Novel Progress
 // ============================================================================
 
-/// Reading progress for a light novel - matches TypeScript LNProgress
+/// Reading progress for a light novel - matches TypeScript NovelsProgress
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct LNProgress {
+pub struct NovelsProgress {
     /// Current chapter index
     #[serde(alias = "chapterIndex")]
     pub chapter_index: i32,
@@ -71,12 +71,12 @@ pub struct LNProgress {
     // Highlights
     #[serde(default)]
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub highlights: Vec<LNHighlight>,
+    pub highlights: Vec<NovelsHighlight>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LNHighlight {
+pub struct NovelsHighlight {
     pub id: String,
     pub chapter_index: i32,
     pub block_id: String,
@@ -86,14 +86,14 @@ pub struct LNHighlight {
     pub created_at: i64,
 }
 
-impl LNProgress {
+impl NovelsProgress {
     /// Check if this progress is further along than another
-    pub fn is_further_than(&self, other: &LNProgress) -> bool {
+    pub fn is_further_than(&self, other: &NovelsProgress) -> bool {
         self.total_progress > other.total_progress
     }
 
     /// Check if this progress is newer than another
-    pub fn is_newer_than(&self, other: &LNProgress) -> bool {
+    pub fn is_newer_than(&self, other: &NovelsProgress) -> bool {
         match (self.last_modified, other.last_modified) {
             (Some(a), Some(b)) => a > b,
             (Some(_), None) => true,
@@ -103,7 +103,7 @@ impl LNProgress {
     }
 
     /// Check if this has a higher sync version
-    pub fn has_higher_version(&self, other: &LNProgress) -> bool {
+    pub fn has_higher_version(&self, other: &NovelsProgress) -> bool {
         match (self.sync_version, other.sync_version) {
             (Some(a), Some(b)) => a > b,
             (Some(_), None) => true,
@@ -114,89 +114,89 @@ impl LNProgress {
 }
 
 // ============================================================================
-// LN Reader Settings (for sync)
+// Novels Reader Settings (for sync)
 // ============================================================================
 
-/// LN Reader settings - matches TypeScript LNReaderSettings
+/// Novels Reader settings - matches TypeScript NovelsReaderSettings
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct LNReaderSettings {
+pub struct NovelsReaderSettings {
     // Basic display
-    pub ln_font_size: f64,
-    pub ln_line_height: f64,
-    pub ln_font_family: String,
-    pub ln_theme: String,
-    pub ln_reading_direction: String,
-    pub ln_pagination_mode: String,
-    pub ln_page_width: f64,
-    pub ln_page_margin: f64,
-    pub ln_enable_furigana: bool,
-    pub ln_text_align: String,
-    pub ln_letter_spacing: f64,
-    pub ln_paragraph_spacing: f64,
+    pub novels_font_size: f64,
+    pub novels_line_height: f64,
+    pub novels_font_family: String,
+    pub novels_theme: String,
+    pub novels_reading_direction: String,
+    pub novels_pagination_mode: String,
+    pub novels_page_width: f64,
+    pub novels_page_margin: f64,
+    pub novels_enable_furigana: bool,
+    pub novels_text_align: String,
+    pub novels_letter_spacing: f64,
+    pub novels_paragraph_spacing: f64,
 
     // Additional display settings
-    pub ln_text_brightness: f64,
-    pub ln_font_weight: f64,
-    pub ln_secondary_font_family: String,
+    pub novels_text_brightness: f64,
+    pub novels_font_weight: f64,
+    pub novels_secondary_font_family: String,
 
     // Bookmark settings
-    pub ln_auto_bookmark: bool,
-    pub ln_bookmark_delay: f64,
-    pub ln_lock_progress_bar: bool,
+    pub novels_auto_bookmark: bool,
+    pub novels_bookmark_delay: f64,
+    pub novels_lock_progress_bar: bool,
 
     // Navigation settings
-    pub ln_hide_nav_buttons: bool,
-    pub ln_enable_swipe: bool,
-    pub ln_drag_threshold: f64,
+    pub novels_hide_nav_buttons: bool,
+    pub novels_enable_swipe: bool,
+    pub novels_drag_threshold: f64,
 
     // Click zones (paged mode)
-    pub ln_enable_click_zones: bool,
-    pub ln_click_zone_size: f64,
-    pub ln_click_zone_placement: String,
-    pub ln_click_zone_position: String,
-    pub ln_click_zone_coverage: f64,
+    pub novels_enable_click_zones: bool,
+    pub novels_click_zone_size: f64,
+    pub novels_click_zone_placement: String,
+    pub novels_click_zone_position: String,
+    pub novels_click_zone_coverage: f64,
 
     // Animations & extras
-    pub ln_disable_animations: bool,
-    pub ln_show_char_progress: bool,
+    pub novels_disable_animations: bool,
+    pub novels_show_char_progress: bool,
 
     // Yomitan integration
     pub enable_yomitan: bool,
     pub interaction_mode: String,
 }
 
-impl LNReaderSettings {
+impl NovelsReaderSettings {
     pub fn default_settings() -> Self {
         Self {
-            ln_font_size: 18.0,
-            ln_line_height: 1.8,
-            ln_font_family: "\"Noto Serif JP\", serif".to_string(),
-            ln_theme: "dark".to_string(),
-            ln_reading_direction: "vertical-rtl".to_string(),
-            ln_pagination_mode: "paginated".to_string(),
-            ln_page_width: 800.0,
-            ln_page_margin: 20.0,
-            ln_enable_furigana: true,
-            ln_text_align: "justify".to_string(),
-            ln_letter_spacing: 0.0,
-            ln_paragraph_spacing: 0.0,
-            ln_text_brightness: 100.0,
-            ln_font_weight: 400.0,
-            ln_secondary_font_family: String::new(),
-            ln_auto_bookmark: true,
-            ln_bookmark_delay: 5.0,
-            ln_lock_progress_bar: false,
-            ln_hide_nav_buttons: false,
-            ln_enable_swipe: true,
-            ln_drag_threshold: 10.0,
-            ln_enable_click_zones: true,
-            ln_click_zone_size: 10.0,
-            ln_click_zone_placement: "vertical".to_string(),
-            ln_click_zone_position: "full".to_string(),
-            ln_click_zone_coverage: 60.0,
-            ln_disable_animations: false,
-            ln_show_char_progress: false,
+            novels_font_size: 18.0,
+            novels_line_height: 1.8,
+            novels_font_family: "\"Noto Serif JP\", serif".to_string(),
+            novels_theme: "dark".to_string(),
+            novels_reading_direction: "vertical-rtl".to_string(),
+            novels_pagination_mode: "paginated".to_string(),
+            novels_page_width: 800.0,
+            novels_page_margin: 20.0,
+            novels_enable_furigana: true,
+            novels_text_align: "justify".to_string(),
+            novels_letter_spacing: 0.0,
+            novels_paragraph_spacing: 0.0,
+            novels_text_brightness: 100.0,
+            novels_font_weight: 400.0,
+            novels_secondary_font_family: String::new(),
+            novels_auto_bookmark: true,
+            novels_bookmark_delay: 5.0,
+            novels_lock_progress_bar: false,
+            novels_hide_nav_buttons: false,
+            novels_enable_swipe: true,
+            novels_drag_threshold: 10.0,
+            novels_enable_click_zones: true,
+            novels_click_zone_size: 10.0,
+            novels_click_zone_placement: "vertical".to_string(),
+            novels_click_zone_position: "full".to_string(),
+            novels_click_zone_coverage: 60.0,
+            novels_disable_animations: false,
+            novels_show_char_progress: false,
             enable_yomitan: true,
             interaction_mode: "hover".to_string(),
         }
@@ -239,10 +239,10 @@ pub struct TocItem {
     pub chapter_index: i32,
 }
 
-/// Light novel metadata - matches TypeScript LNMetadata
+/// Light novel metadata - matches TypeScript NovelsMetadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LNMetadata {
+pub struct NovelsMetadata {
     pub id: String,
     pub title: String,
     pub author: String,
@@ -295,17 +295,17 @@ pub struct LNMetadata {
     // Settings per language (synced)
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     #[serde(alias = "languageSettings")]
-    pub language_settings: HashMap<String, LNReaderSettings>,
+    pub language_settings: HashMap<String, NovelsReaderSettings>,
 }
 
 // ============================================================================
-// LN Categories
+// Novels Categories
 // ============================================================================
 
 /// Category for organizing light novels
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LnCategory {
+pub struct NovelsCategory {
     pub id: String,
     pub name: String,
     pub order: i32,
@@ -316,7 +316,7 @@ pub struct LnCategory {
 /// Category metadata (sort settings)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LnCategoryMetadata {
+pub struct NovelsCategoryMetadata {
     #[serde(alias = "sortBy")]
     pub sort_by: String,
     #[serde(alias = "sortDesc")]
@@ -327,10 +327,10 @@ pub struct LnCategoryMetadata {
 // Light Novel Content
 // ============================================================================
 
-/// Parsed book content - matches TypeScript LNParsedBook
+/// Parsed book content - matches TypeScript NovelsParsedBook
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LNParsedBook {
+pub struct NovelsParsedBook {
     /// HTML content of each chapter
     pub chapters: Vec<String>,
 
@@ -387,35 +387,35 @@ pub struct SyncPayload {
 
     /// Reading progress for each book (bookId → progress)
     #[serde(default)]
-    pub ln_progress: HashMap<String, LNProgress>,
+    pub novels_progress: HashMap<String, NovelsProgress>,
 
     /// Metadata for each book (bookId → metadata)
     #[serde(default)]
-    pub ln_metadata: HashMap<String, LNMetadata>,
+    pub novels_metadata: HashMap<String, NovelsMetadata>,
 
     /// Parsed content for each book (bookId → content)
-    /// Only included if sync_config.ln_content is true
+    /// Only included if sync_config.novels_content is true
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub ln_content: HashMap<String, LNParsedBook>,
+    pub novels_content: HashMap<String, NovelsParsedBook>,
 
     /// EPUB files as base64 (bookId → base64 data)
-    /// Only included if sync_config.ln_files is true
+    /// Only included if sync_config.novels_files is true
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub ln_files: HashMap<String, String>,
+    pub novels_files: HashMap<String, String>,
 
     /// File manifest for resumable sync
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub file_manifest: HashMap<String, FileReference>,
 
-    /// LN Categories
+    /// Novels Categories
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    #[serde(alias = "lnCategories")]
-    pub ln_categories: HashMap<String, LnCategory>,
+    #[serde(alias = "novelsCategories")]
+    pub novels_categories: HashMap<String, NovelsCategory>,
 
-    /// LN Category metadata (sort settings)
+    /// Novels Category metadata (sort settings)
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    #[serde(alias = "lnCategoryMetadata")]
-    pub ln_category_metadata: HashMap<String, LnCategoryMetadata>,
+    #[serde(alias = "novelsCategoryMetadata")]
+    pub novels_category_metadata: HashMap<String, NovelsCategoryMetadata>,
 }
 
 impl SyncPayload {
@@ -485,10 +485,10 @@ pub struct ConflictInfo {
 #[serde(rename_all = "camelCase")]
 pub struct SyncConfig {
     // What to sync
-    pub ln_progress: bool,
-    pub ln_metadata: bool,
-    pub ln_content: bool,
-    pub ln_files: bool,
+    pub novels_progress: bool,
+    pub novels_metadata: bool,
+    pub novels_content: bool,
+    pub novels_files: bool,
 
     // Sync triggers (matching Tachiyomi)
     pub sync_on_chapter_read: bool,
@@ -510,10 +510,10 @@ pub struct SyncConfig {
 impl Default for SyncConfig {
     fn default() -> Self {
         Self {
-            ln_progress: true,
-            ln_metadata: true,
-            ln_content: true,
-            ln_files: false,
+            novels_progress: true,
+            novels_metadata: true,
+            novels_content: true,
+            novels_files: false,
             sync_on_chapter_read: false,
             sync_on_chapter_open: false,
             sync_on_app_start: false,

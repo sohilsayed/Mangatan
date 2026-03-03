@@ -3,41 +3,41 @@
 // Types matching Rust backend (camelCase for JSON serialization)
 // ============================================================================
 
-// LN Reader Settings for sync
-export interface LNReaderSettings {
-    lnFontSize: number;
-    lnLineHeight: number;
-    lnFontFamily: string;
-    lnTheme: 'light' | 'sepia' | 'dark' | 'black';
-    lnReadingDirection: 'horizontal' | 'vertical-rtl' | 'vertical-ltr';
-    lnPaginationMode: 'scroll' | 'paginated' | 'single-page';
-    lnPageWidth: number;
-    lnPageMargin: number;
-    lnEnableFurigana: boolean;
-    lnTextAlign: 'left' | 'center' | 'justify';
-    lnLetterSpacing: number;
-    lnParagraphSpacing: number;
-    lnTextBrightness: number;
-    lnFontWeight: number;
-    lnSecondaryFontFamily: string;
-    lnAutoBookmark: boolean;
-    lnBookmarkDelay: number;
-    lnLockProgressBar: boolean;
-    lnHideNavButtons: boolean;
-    lnEnableSwipe: boolean;
-    lnDragThreshold: number;
-    lnEnableClickZones: boolean;
-    lnClickZoneSize: number;
-    lnClickZonePlacement: 'vertical' | 'horizontal';
-    lnClickZonePosition: 'full' | 'start' | 'center' | 'end';
-    lnClickZoneCoverage: number;
-    lnDisableAnimations: boolean;
-    lnShowCharProgress: boolean;
+// Novels Reader Settings for sync
+export interface NovelsReaderSettings {
+    novelsFontSize: number;
+    novelsLineHeight: number;
+    novelsFontFamily: string;
+    novelsTheme: 'light' | 'sepia' | 'dark' | 'black';
+    novelsReadingDirection: 'horizontal' | 'vertical-rtl' | 'vertical-ltr';
+    novelsPaginationMode: 'scroll' | 'paginated' | 'single-page';
+    novelsPageWidth: number;
+    novelsPageMargin: number;
+    novelsEnableFurigana: boolean;
+    novelsTextAlign: 'left' | 'center' | 'justify';
+    novelsLetterSpacing: number;
+    novelsParagraphSpacing: number;
+    novelsTextBrightness: number;
+    novelsFontWeight: number;
+    novelsSecondaryFontFamily: string;
+    novelsAutoBookmark: boolean;
+    novelsBookmarkDelay: number;
+    novelsLockProgressBar: boolean;
+    novelsHideNavButtons: boolean;
+    novelsEnableSwipe: boolean;
+    novelsDragThreshold: number;
+    novelsEnableClickZones: boolean;
+    novelsClickZoneSize: number;
+    novelsClickZonePlacement: 'vertical' | 'horizontal';
+    novelsClickZonePosition: 'full' | 'start' | 'center' | 'end';
+    novelsClickZoneCoverage: number;
+    novelsDisableAnimations: boolean;
+    novelsShowCharProgress: boolean;
     enableYomitan: boolean;
     interactionMode: 'hover' | 'click';
 }
 
-export interface LNProgress {
+export interface NovelsProgress {
     chapterIndex: number;
     pageNumber?: number;
     chapterCharOffset: number;
@@ -52,10 +52,10 @@ export interface LNProgress {
     lastModified?: number;
     syncVersion?: number;
     deviceId?: string;
-    highlights?: LNHighlight[];
+    highlights?: NovelsHighlight[];
 }
 
-export interface LNHighlight {
+export interface NovelsHighlight {
     id: string;
     chapterIndex: number;
     blockId: string;
@@ -83,7 +83,7 @@ export interface TocItem {
     chapterIndex: number;
 }
 
-export interface LNMetadata {
+export interface NovelsMetadata {
     id: string;
     title: string;
     author: string;
@@ -101,10 +101,10 @@ export interface LNMetadata {
     language?: string;
     categoryIds: string[];
     // Settings synced per language
-    languageSettings?: Record<string, LNReaderSettings>;
+    languageSettings?: Record<string, NovelsReaderSettings>;
 }
 
-export interface LnCategory {
+export interface NovelsCategory {
     id: string;
     name: string;
     order: number;
@@ -112,12 +112,12 @@ export interface LnCategory {
     lastModified: number;
 }
 
-export interface LnCategoryMetadata {
+export interface NovelsCategoryMetadata {
     sortBy: string;
     sortDesc: boolean;
 }
 
-export interface LNParsedBook {
+export interface NovelsParsedBook {
     chapters: string[];
     imageBlobs: Record<string, string>;
     chapterFilenames: string[];
@@ -136,12 +136,12 @@ export interface SyncPayload {
     schemaVersion: number;
     deviceId: string;
     lastModified: number;
-    lnProgress: Record<string, LNProgress>;
-    lnMetadata: Record<string, LNMetadata>;
-    lnContent?: Record<string, LNParsedBook>;
-    lnFiles?: Record<string, string>;
-    lnCategories?: Record<string, LnCategory>;
-    lnCategoryMetadata?: Record<string, LnCategoryMetadata>;
+    novelsProgress: Record<string, NovelsProgress>;
+    novelsMetadata: Record<string, NovelsMetadata>;
+    novelsContent?: Record<string, NovelsParsedBook>;
+    novelsFiles?: Record<string, string>;
+    novelsCategories?: Record<string, NovelsCategory>;
+    novelsCategoryMetadata?: Record<string, NovelsCategoryMetadata>;
     deletedBookIds?: string[];
     deletedFileRefs?: FileReference[];
 }
@@ -153,10 +153,10 @@ export type GoogleDriveFolderType = 'public' | 'appData';
 export type DeletionBehavior = 'keepEverywhere' | 'deleteEverywhere' | 'askEachTime';
 
 export interface SyncConfig {
-    ln_progress: boolean;
-    ln_metadata: boolean;
-    ln_content: boolean;
-    ln_files: boolean;
+    novels_progress: boolean;
+    novels_metadata: boolean;
+    novels_content: boolean;
+    novels_files: boolean;
     syncOnChapterRead: boolean;
     syncOnChapterOpen: boolean;
     syncOnAppStart: boolean;

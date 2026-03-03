@@ -127,8 +127,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         createSaveScheduler({
             bookId,
             debounceMs: SAVE_DEBOUNCE_MS,
-            autoSaveEnabled: settings.lnAutoBookmark ?? true,
-            saveDelay: settings.lnBookmarkDelay ?? 0,
+            autoSaveEnabled: settings.novelsAutoBookmark ?? true,
+            saveDelay: settings.novelsBookmarkDelay ?? 0,
             onSaveStatusChange: setIsSaved,
         })
     );
@@ -197,10 +197,10 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     useEffect(() => {
         saveSchedulerRef.current.updateOptions({
             bookId,
-            autoSaveEnabled: settings.lnAutoBookmark ?? true,
-            saveDelay: settings.lnBookmarkDelay ?? 0,
+            autoSaveEnabled: settings.novelsAutoBookmark ?? true,
+            saveDelay: settings.novelsBookmarkDelay ?? 0,
         });
-    }, [bookId, settings.lnAutoBookmark, settings.lnBookmarkDelay]);
+    }, [bookId, settings.novelsAutoBookmark, settings.novelsBookmarkDelay]);
 
     // ========================================================================
     // State
@@ -237,8 +237,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     // ========================================================================
 
     const theme = useMemo(
-        () => getReaderTheme(settings.lnTheme),
-        [settings.lnTheme]
+        () => getReaderTheme(settings.novelsTheme),
+        [settings.novelsTheme]
     );
 
     const navOptions = useMemo(
@@ -256,24 +256,24 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         return JSON.stringify({
             isVertical,
             isRTL,
-            fontSize: settings.lnFontSize,
-            lineHeight: settings.lnLineHeight,
-            letterSpacing: settings.lnLetterSpacing,
-            fontFamily: settings.lnFontFamily,
-            textAlign: settings.lnTextAlign,
-            furigana: settings.lnEnableFurigana,
-            pageMargin: settings.lnPageMargin,
-            marginTop: settings.lnMarginTop,
-            marginBottom: settings.lnMarginBottom,
-            marginLeft: settings.lnMarginLeft,
-            marginRight: settings.lnMarginRight,
+            fontSize: settings.novelsFontSize,
+            lineHeight: settings.novelsLineHeight,
+            letterSpacing: settings.novelsLetterSpacing,
+            fontFamily: settings.novelsFontFamily,
+            textAlign: settings.novelsTextAlign,
+            furigana: settings.novelsEnableFurigana,
+            pageMargin: settings.novelsPageMargin,
+            marginTop: settings.novelsMarginTop,
+            marginBottom: settings.novelsMarginBottom,
+            marginLeft: settings.novelsMarginLeft,
+            marginRight: settings.novelsMarginRight,
         });
     }, [
         isVertical, isRTL,
-        settings.lnFontSize, settings.lnLineHeight, settings.lnLetterSpacing,
-        settings.lnFontFamily, settings.lnTextAlign, settings.lnEnableFurigana,
-        settings.lnPageMargin, settings.lnMarginTop, settings.lnMarginBottom,
-        settings.lnMarginLeft, settings.lnMarginRight,
+        settings.novelsFontSize, settings.novelsLineHeight, settings.novelsLetterSpacing,
+        settings.novelsFontFamily, settings.novelsTextAlign, settings.novelsEnableFurigana,
+        settings.novelsPageMargin, settings.novelsMarginTop, settings.novelsMarginBottom,
+        settings.novelsMarginLeft, settings.novelsMarginRight,
     ]);
 
     // ========================================================================
@@ -285,7 +285,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
         // Gap between columns in CSS multi-column
         const gap = 160;
-        const padding = settings.lnPageMargin || 24;
+        const padding = settings.novelsPageMargin || 24;
 
         const contentW = dimensions.width - (padding * 2);
         const contentH = dimensions.height - (padding * 2) - safeAreaTopOffsetPx;
@@ -303,7 +303,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             contentH,
             columnWidth,
         };
-    }, [dimensions, settings.lnPageMargin, isVertical, safeAreaTopOffsetPx]);
+    }, [dimensions, settings.novelsPageMargin, isVertical, safeAreaTopOffsetPx]);
 
     const currentHtml = useMemo(
         () => chapters[currentSection] || '',
@@ -314,11 +314,11 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         if (stats?.language === 'ko') return true;
 
         const koreanFonts = ['KR', 'Malgun', 'Nanum', 'Gothic', 'Noto Sans CJK KR'];
-        if (koreanFonts.some(f => settings.lnFontFamily?.includes(f))) return true;
+        if (koreanFonts.some(f => settings.novelsFontFamily?.includes(f))) return true;
 
         const sample = currentHtml.slice(0, 2000);
         return /[\uAC00-\uD7A3]/.test(sample);
-    }, [stats?.language, settings.lnFontFamily, currentHtml]);
+    }, [stats?.language, settings.novelsFontFamily, currentHtml]);
 
     const typographyStyles = useMemo(
         () => buildTypographyStyles(settings, isVertical),
@@ -754,7 +754,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     }, []);
 
     const handlePointerMove = useCallback((e: React.PointerEvent) => {
-        const threshold = settings.lnDragThreshold ?? 10;
+        const threshold = settings.novelsDragThreshold ?? 10;
         if (!isDraggingRef.current) {
             const dx = Math.abs(e.clientX - startPosRef.current.x);
             const dy = Math.abs(e.clientY - startPosRef.current.y);
@@ -762,7 +762,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 isDraggingRef.current = true;
             }
         }
-    }, [settings.lnDragThreshold]);
+    }, [settings.novelsDragThreshold]);
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
         if (e.touches.length === 1) {
@@ -777,7 +777,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
         if (!touchStartRef.current) return;
         if (!contentReady || isTransitioning) return;
-        if (!(settings.lnEnableSwipe ?? true)) return;
+        if (!(settings.novelsEnableSwipe ?? true)) return;
 
         const touch = touchStartRef.current;
         
@@ -831,7 +831,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 }
             }
         }
-    }, [contentReady, isTransitioning, isVertical, isRTL, goNext, goPrev, settings.lnEnableSwipe]);
+    }, [contentReady, isTransitioning, isVertical, isRTL, goNext, goPrev, settings.novelsEnableSwipe]);
 
     const handleContentClick = useCallback(async (e: React.MouseEvent) => {
         if (isDraggingRef.current) return;
@@ -874,17 +874,17 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         if (lookupSuccess) return;
 
         // Check if click zones are enabled and detect zone click
-        if (settings.lnEnableClickZones && wrapperRef.current) {
+        if (settings.novelsEnableClickZones && wrapperRef.current) {
             const rect = wrapperRef.current.getBoundingClientRect();
             const zone = getClickZone(
                 e.clientX,
                 e.clientY,
                 rect,
                 isVertical,
-                settings.lnClickZonePlacement ?? 'vertical',
-                settings.lnClickZoneSize ?? 10,
-                settings.lnClickZonePosition ?? 'full',
-                settings.lnClickZoneCoverage ?? 60
+                settings.novelsClickZonePlacement ?? 'vertical',
+                settings.novelsClickZoneSize ?? 10,
+                settings.novelsClickZonePosition ?? 'full',
+                settings.novelsClickZoneCoverage ?? 60
             );
             
             if (zone === 'prev') {
@@ -899,7 +899,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
         // Otherwise toggle UI
         onToggleUIRef.current?.();
-    }, [tryLookup, settings.lnEnableClickZones, settings.lnClickZonePlacement, settings.lnClickZoneSize, settings.lnClickZonePosition, settings.lnClickZoneCoverage, isVertical, goPrev, goNext]);
+    }, [tryLookup, settings.novelsEnableClickZones, settings.novelsClickZonePlacement, settings.novelsClickZoneSize, settings.novelsClickZonePosition, settings.novelsClickZoneCoverage, isVertical, goPrev, goNext]);
 
     const navCallbacks: NavigationCallbacks = useMemo(() => ({
         goNext,
@@ -1112,12 +1112,12 @@ useEffect(() => {
             ref={wrapperRef}
             className="paged-reader-wrapper"
             style={wrapperStyle}
-            data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
+            data-dark-mode={settings.novelsTheme === 'dark' || settings.novelsTheme === 'black'}
         >
             {/* Measurement div (Hidden) */}
             <div
                 ref={measureRef}
-                className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                className={`paged-content ${!settings.novelsEnableFurigana ? 'furigana-hidden' : ''}`}
                 style={{
                     ...typographyStyles,
                     color: theme.fg,
@@ -1198,7 +1198,7 @@ useEffect(() => {
                             overflow: 'hidden',
                             clipPath: 'inset(0px)',
                             transform: `translateX(calc(${slideFactor * 100}% + ${slideFactor * PAGE_GAP_PX}px))`,
-                            transition: settings.lnDisableAnimations ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                            transition: settings.novelsDisableAnimations ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                             zIndex: isCurrentPage ? 1 : 0,
                             // Performance optimizations
                             contain: 'strict',
@@ -1215,13 +1215,13 @@ useEffect(() => {
                     >
                         <div
                             ref={isCurrentPage ? contentRef : undefined}
-                            className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                            className={`paged-content ${!settings.novelsEnableFurigana ? 'furigana-hidden' : ''}`}
                             lang={isKorean ? "ko" : undefined}
                             style={{
                                 ...typographyStyles,
-                                color: (settings.lnTextBrightness ?? 100) === 100
+                                color: (settings.novelsTextBrightness ?? 100) === 100
                                     ? theme.fg
-                                    : adjustBrightness(theme.fg, settings.lnTextBrightness ?? 100),
+                                    : adjustBrightness(theme.fg, settings.novelsTextBrightness ?? 100),
                                 columnWidth: `${layout.columnWidth}px`,
                                 columnGap: `${layout.gap}px`,
                                 columnFill: 'auto',
@@ -1268,7 +1268,7 @@ useEffect(() => {
             <SelectionHandles 
                 containerRef={contentRef}
                 enabled={contentReady && !isTransitioning}
-                theme={(settings.lnTheme as 'light' | 'sepia' | 'dark' | 'black') || 'dark'}
+                theme={(settings.novelsTheme as 'light' | 'sepia' | 'dark' | 'black') || 'dark'}
                 onSelectionComplete={(text, startOffset, endOffset, blockId) => {
                     if (onAddHighlight && currentSection && blockId) {
                         onAddHighlight(currentSection, blockId, text, startOffset, endOffset);
@@ -1282,10 +1282,10 @@ useEffect(() => {
                     isVertical={isVertical}
                     canGoNext={currentPage < computedPages.totalPages - 1 || currentSection < chapters.length - 1}
                     canGoPrev={currentPage > 0 || currentSection > 0}
-                    zoneSize={settings.lnClickZoneSize ?? 10}
-                    zonePosition={settings.lnClickZonePosition ?? 'full'}
-                    zoneCoverage={settings.lnClickZoneCoverage ?? 60}
-                    zonePlacement={settings.lnClickZonePlacement ?? 'vertical'}
+                    zoneSize={settings.novelsClickZoneSize ?? 10}
+                    zonePosition={settings.novelsClickZonePosition ?? 'full'}
+                    zoneCoverage={settings.novelsClickZoneCoverage ?? 60}
+                    zonePlacement={settings.novelsClickZonePlacement ?? 'vertical'}
                     visible={showNavigation}
                     debugMode={settings.debugMode}
                 />

@@ -1,4 +1,4 @@
-import { BlockIndexMap } from '@/features/ln/reader/types/block';
+import { BlockIndexMap } from '@/features/novels/reader/types/block';
 
 export interface BookStats {
     chapterLengths: number[];
@@ -12,7 +12,7 @@ export interface TocItem {
     chapterIndex: number;
 }
 
-export interface LNMetadata {
+export interface NovelsMetadata {
     id: string;
     title: string;
     author: string;
@@ -37,43 +37,43 @@ export interface LNMetadata {
     categoryIds: string[];
 
     // Settings per language (synced)
-    languageSettings?: Record<string, LNReaderSettings>;
+    languageSettings?: Record<string, NovelsReaderSettings>;
 }
 
-export interface LNReaderSettings {
-    lnFontSize: number;
-    lnLineHeight: number;
-    lnFontFamily: string;
-    lnTheme: 'light' | 'sepia' | 'dark' | 'black';
-    lnReadingDirection: 'horizontal' | 'vertical-rtl' | 'vertical-ltr';
-    lnPaginationMode: 'scroll' | 'paginated' | 'single-page';
-    lnPageWidth: number;
-    lnPageMargin: number;
-    lnEnableFurigana: boolean;
-    lnTextAlign: 'left' | 'center' | 'justify';
-    lnLetterSpacing: number;
-    lnParagraphSpacing: number;
-    lnTextBrightness: number;
-    lnFontWeight: number;
-    lnSecondaryFontFamily: string;
-    lnAutoBookmark: boolean;
-    lnBookmarkDelay: number;
-    lnLockProgressBar: boolean;
-    lnHideNavButtons: boolean;
-    lnEnableSwipe: boolean;
-    lnDragThreshold: number;
-    lnEnableClickZones: boolean;
-    lnClickZoneSize: number;
-    lnClickZonePlacement: 'vertical' | 'horizontal';
-    lnClickZonePosition: 'full' | 'start' | 'center' | 'end';
-    lnClickZoneCoverage: number;
-    lnDisableAnimations: boolean;
-    lnShowCharProgress: boolean;
+export interface NovelsReaderSettings {
+    novelsFontSize: number;
+    novelsLineHeight: number;
+    novelsFontFamily: string;
+    novelsTheme: 'light' | 'sepia' | 'dark' | 'black';
+    novelsReadingDirection: 'horizontal' | 'vertical-rtl' | 'vertical-ltr';
+    novelsPaginationMode: 'scroll' | 'paginated' | 'single-page';
+    novelsPageWidth: number;
+    novelsPageMargin: number;
+    novelsEnableFurigana: boolean;
+    novelsTextAlign: 'left' | 'center' | 'justify';
+    novelsLetterSpacing: number;
+    novelsParagraphSpacing: number;
+    novelsTextBrightness: number;
+    novelsFontWeight: number;
+    novelsSecondaryFontFamily: string;
+    novelsAutoBookmark: boolean;
+    novelsBookmarkDelay: number;
+    novelsLockProgressBar: boolean;
+    novelsHideNavButtons: boolean;
+    novelsEnableSwipe: boolean;
+    novelsDragThreshold: number;
+    novelsEnableClickZones: boolean;
+    novelsClickZoneSize: number;
+    novelsClickZonePlacement: 'vertical' | 'horizontal';
+    novelsClickZonePosition: 'full' | 'start' | 'center' | 'end';
+    novelsClickZoneCoverage: number;
+    novelsDisableAnimations: boolean;
+    novelsShowCharProgress: boolean;
     enableYomitan: boolean;
     interactionMode: 'hover' | 'click';
 }
 
-export interface LNProgress {
+export interface NovelsProgress {
     // Current reading position (the bookmark)
     chapterIndex: number;
     pageNumber?: number;
@@ -95,10 +95,10 @@ export interface LNProgress {
     deviceId?: string; // Track which device saved this
 
     // Highlights
-    highlights?: LNHighlight[];
+    highlights?: NovelsHighlight[];
 }
 
-export interface LNHighlight {
+export interface NovelsHighlight {
     id: string;
     chapterIndex: number;
     blockId: string;
@@ -108,13 +108,13 @@ export interface LNHighlight {
     createdAt: number;
 }
 
-export interface LNParsedBook {
+export interface NovelsParsedBook {
     chapters: string[];
     imageBlobs: Record<string, Blob | string>;
     chapterFilenames: string[];
 }
 
-export interface LnCategory {
+export interface NovelsCategory {
     id: string;
     name: string;
     order: number;
@@ -122,7 +122,7 @@ export interface LnCategory {
     lastModified: number;
 }
 
-export interface LnCategoryMetadata {
+export interface NovelsCategoryMetadata {
     sortBy: string;
     sortDesc: boolean;
 }

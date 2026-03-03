@@ -9,10 +9,10 @@ import {
 } from './Sync.types.ts';
 
 export const DEFAULT_SYNC_CONFIG: SyncConfig = {
-    ln_progress: true,
-    ln_metadata: true,
-    ln_content: true,
-    ln_files: false,
+    novels_progress: true,
+    novels_metadata: true,
+    novels_content: true,
+    novels_files: false,
     syncOnChapterRead: false,
     syncOnChapterOpen: false,
     syncOnAppStart: false,
@@ -84,24 +84,24 @@ export const DELETION_BEHAVIOR_SELECT_VALUES: SelectSettingValue<DeletionBehavio
 );
 
 // What to sync options
-export const SYNC_DATA_OPTIONS: { key: keyof Pick<SyncConfig, 'ln_progress' | 'ln_metadata' | 'ln_content' | 'ln_files'>; labelKey: TranslationKey; descriptionKey?: TranslationKey; warning?: boolean }[] = [
+export const SYNC_DATA_OPTIONS: { key: keyof Pick<SyncConfig, 'novels_progress' | 'novels_metadata' | 'novels_content' | 'novels_files'>; labelKey: TranslationKey; descriptionKey?: TranslationKey; warning?: boolean }[] = [
     {
-        key: 'ln_progress',
+        key: 'novels_progress',
         labelKey: 'sync.data.option.progress.label',
         descriptionKey: 'sync.data.option.progress.description',
     },
     {
-        key: 'ln_metadata',
+        key: 'novels_metadata',
         labelKey: 'sync.data.option.metadata.label',
         descriptionKey: 'sync.data.option.metadata.description',
     },
     {
-        key: 'ln_content',
+        key: 'novels_content',
         labelKey: 'sync.data.option.content.label',
         descriptionKey: 'sync.data.option.content.description',
     },
     {
-        key: 'ln_files',
+        key: 'novels_files',
         labelKey: 'sync.data.option.files.label',
         descriptionKey: 'sync.data.option.files.description',
         warning: true,

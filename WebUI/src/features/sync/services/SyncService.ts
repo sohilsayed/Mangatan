@@ -1,31 +1,31 @@
-import { AppStorage, LNMetadata, LNProgress, LNParsedBook, LNReaderSettings } from '@/lib/storage/AppStorage';
+import { AppStorage, NovelsMetadata, NovelsProgress, NovelsParsedBook, NovelsReaderSettings } from '@/lib/storage/AppStorage';
 import { SyncApi } from './SyncApi';
 import { SyncConfig, SyncPayload, MergeResponse, SyncProgress } from '../Sync.types';
-import { MANATAN_LN_SETTINGS_META_KEY, getServerMetaJson, setServerMetaJson } from '@/Manatan/services/ServerMetaStorage.ts';
+import { MANATAN_NOVELS_SETTINGS_META_KEY, getServerMetaJson, setServerMetaJson } from '@/Manatan/services/ServerMetaStorage.ts';
 import {
-    mergeWithDefaultLnSettings,
-    readLegacyLnSettingsFromLocalStorage,
-    saveLegacyLnSettingsToLocalStorage,
-} from '@/features/ln/reader/utils/lnSettings';
+    mergeWithDefaultNovelsSettings,
+    readLegacyNovelsSettingsFromLocalStorage,
+    saveLegacyNovelsSettingsToLocalStorage,
+} from '@/features/novels/reader/utils/novelsSettings';
 
 const DEVICE_ID_KEY = 'manatan_device_id';
 const LAST_SYNC_KEY = 'manatan_last_sync';
 
 // ========================================================================
-// LN Settings Helpers
+// Novels Settings Helpers
 // ========================================================================
 
-async function getSettingsForSync(): Promise<Record<string, LNReaderSettings>> {
-    const legacySettings = readLegacyLnSettingsFromLocalStorage();
+async function getSettingsForSync(): Promise<Record<string, NovelsReaderSettings>> {
+    const legacySettings = readLegacyNovelsSettingsFromLocalStorage();
 
     try {
-        const serverSettings = await getServerMetaJson<Record<string, Partial<LNReaderSettings>> | null>(
-            MANATAN_LN_SETTINGS_META_KEY,
+        const serverSettings = await getServerMetaJson<Record<string, Partial<NovelsReaderSettings>> | null>(
+            MANATAN_NOVELS_SETTINGS_META_KEY,
             null,
         );
-        const normalizedServerSettings = Object.entries(serverSettings ?? {}).reduce<Record<string, LNReaderSettings>>(
+        const normalizedServerSettings = Object.entries(serverSettings ?? {}).reduce<Record<string, NovelsReaderSettings>>(
             (acc, [language, settings]) => {
-                acc[language] = mergeWithDefaultLnSettings(settings);
+                acc[language] = mergeWithDefaultNovelsSettings(settings);
                 return acc;
             },
             {},
@@ -35,22 +35,22 @@ async function getSettingsForSync(): Promise<Record<string, LNReaderSettings>> {
             ...normalizedServerSettings,
         };
     } catch (error) {
-        console.warn('[SYNC] Failed to read LN settings from server metadata, using local cache only:', error);
+        console.warn('[SYNC] Failed to read Novels settings from server metadata, using local cache only:', error);
         return legacySettings;
     }
 }
 
-async function applySettingsForSync(settings: Record<string, LNReaderSettings> | undefined): Promise<void> {
+async function applySettingsForSync(settings: Record<string, NovelsReaderSettings> | undefined): Promise<void> {
     if (!settings) return;
 
     try {
-        await setServerMetaJson(MANATAN_LN_SETTINGS_META_KEY, settings);
+        await setServerMetaJson(MANATAN_NOVELS_SETTINGS_META_KEY, settings);
     } catch (error) {
-        console.warn('[SYNC] Failed to persist LN settings to server metadata:', error);
+        console.warn('[SYNC] Failed to persist Novels settings to server metadata:', error);
     }
 
     // Keep legacy local cache in sync for backward compatibility.
-    saveLegacyLnSettingsToLocalStorage(settings);
+    saveLegacyNovelsSettingsToLocalStorage(settings);
 }
 
 export class SyncService {
@@ -97,29 +97,29 @@ export class SyncService {
     ): Promise<SyncPayload> {
         console.log('[SYNC] ===== COLLECTING LOCAL DATA =====');
         console.log('[SYNC] Config: progress=%s, metadata=%s, content=%s, files=%s',
-            config.lnProgress, config.lnMetadata, config.lnContent, config.lnFiles);
+            config.novelsProgress, config.novelsMetadata, config.novelsContent, config.lnFiles);
 
         const payload: SyncPayload = {
             schemaVersion: 1,
             deviceId: this.getDeviceId(),
             lastModified: Date.now(),
-            lnProgress: {},
-            lnMetadata: {},
-            lnContent: {},
-            lnFiles: {},
-            lnCategories: {},
-            lnCategoryMetadata: {},
+            novelsProgress: {},
+            novelsMetadata: {},
+            novelsContent: {},
+            novelsFiles: {},
+            novelsCategories: {},
+            novelsCategoryMetadata: {},
         };
 
         // Collect progress
-        if (config.lnProgress) {
+        if (config.novelsProgress) {
             const progressMsg = 'Collecting reading progress...';
             console.log('[SYNC] ' + progressMsg);
             onProgress?.({ phase: 'collecting', message: progressMsg });
-            const progressKeys = await AppStorage.lnProgress.keys();
+            const progressKeys = await AppStorage.novelsProgress.keys();
             console.log('[SYNC] Found %d progress entries', progressKeys.length);
             for (const key of progressKeys) {
-                let progress = await AppStorage.lnProgress.getItem<any>(key);
+                let progress = await AppStorage.novelsProgress.getItem<any>(key);
                 if (progress) {
                     // Apply progress migration if needed
                     if (progress.chapter_index !== undefined) {
@@ -141,24 +141,24 @@ export class SyncService {
                             deviceId: progress.device_id,
                         };
                         // Save migrated data back to storage
-                        await AppStorage.lnProgress.setItem(key, progress);
+                        await AppStorage.novelsProgress.setItem(key, progress);
                     }
                     
-                    payload.lnProgress[key] = progress;
+                    payload.novelsProgress[key] = progress;
                 }
             }
-            console.log('[SYNC] Collected %d progress entries', Object.keys(payload.lnProgress).length);
+            console.log('[SYNC] Collected %d progress entries', Object.keys(payload.novelsProgress).length);
         }
 
         // Collect metadata
-        if (config.lnMetadata) {
+        if (config.novelsMetadata) {
             const metadataMsg = 'Collecting book metadata...';
             console.log('[SYNC] ' + metadataMsg);
             onProgress?.({ phase: 'collecting', message: metadataMsg });
-            const metadataKeys = await AppStorage.lnMetadata.keys();
+            const metadataKeys = await AppStorage.novelsMetadata.keys();
             console.log('[SYNC] Found %d metadata entries', metadataKeys.length);
             for (const key of metadataKeys) {
-                let metadata = await AppStorage.lnMetadata.getItem<any>(key);
+                let metadata = await AppStorage.novelsMetadata.getItem<any>(key);
                 if (metadata) {
                     let needsMigration = false;
                     
@@ -228,34 +228,34 @@ export class SyncService {
                         };
                         
                         // Save migrated data back to storage
-                        await AppStorage.lnMetadata.setItem(key, metadata);
+                        await AppStorage.novelsMetadata.setItem(key, metadata);
                     }
                     
-                    // Merge persisted LN settings into metadata before sync
-                    const persistedLnSettings = await getSettingsForSync();
+                    // Merge persisted Novels settings into metadata before sync
+                    const persistedNovelsSettings = await getSettingsForSync();
                     const existingSettings = metadata.languageSettings || metadata.language_settings || {};
                     
                     // Merge: persisted settings take priority over stored metadata
-                    metadata.languageSettings = { ...existingSettings, ...persistedLnSettings };
+                    metadata.languageSettings = { ...existingSettings, ...persistedNovelsSettings };
                     
-                    payload.lnMetadata[key] = metadata;
+                    payload.novelsMetadata[key] = metadata;
                 }
             }
-            console.log('[SYNC] Collected %d metadata entries', Object.keys(payload.lnMetadata).length);
+            console.log('[SYNC] Collected %d metadata entries', Object.keys(payload.novelsMetadata).length);
         }
 
         // Collect content (large!)
-        if (config.lnContent) {
+        if (config.novelsContent) {
             const contentMsg = 'Collecting parsed content...';
             console.log('[SYNC] ' + contentMsg);
             onProgress?.({ phase: 'collecting', message: contentMsg });
-            payload.lnContent = {};
-            const contentKeys = await AppStorage.lnContent.keys();
+            payload.novelsContent = {};
+            const contentKeys = await AppStorage.novelsContent.keys();
             console.log('[SYNC] Found %d content entries', contentKeys.length);
             
             for (let i = 0; i < contentKeys.length; i++) {
                 const key = contentKeys[i];
-                let content = await AppStorage.lnContent.getItem<any>(key);
+                let content = await AppStorage.novelsContent.getItem<any>(key);
                 
                 if (content) {
                     let needsMigration = false;
@@ -272,7 +272,7 @@ export class SyncService {
                         };
                         
                         // Save migrated data back to storage
-                        await AppStorage.lnContent.setItem(key, content);
+                        await AppStorage.novelsContent.setItem(key, content);
                     }
                     
                     // Convert Blobs to base64
@@ -286,7 +286,7 @@ export class SyncService {
                         }
                     }
                     
-                    payload.lnContent[key] = {
+                    payload.novelsContent[key] = {
                         chapters: content.chapters || [],
                         imageBlobs,
                         chapterFilenames: content.chapterFilenames || [],
@@ -300,7 +300,7 @@ export class SyncService {
                     percent: progressPercent,
                 });
             }
-            console.log('[SYNC] Collected %d content entries', Object.keys(payload.lnContent || {}).length);
+            console.log('[SYNC] Collected %d content entries', Object.keys(payload.novelsContent || {}).length);
         }
 
         // Collect files (very large!)
@@ -330,17 +330,17 @@ export class SyncService {
             console.log('[SYNC] Collected %d files', Object.keys(payload.lnFiles || {}).length);
         }
 
-        // Collect LN Categories
-        if (config.lnMetadata) {
-            const catMsg = 'Collecting LN categories...';
+        // Collect Novels Categories
+        if (config.novelsMetadata) {
+            const catMsg = 'Collecting Novels categories...';
             console.log('[SYNC] ' + catMsg);
             onProgress?.({ phase: 'collecting', message: catMsg });
             
-            const categoryKeys = await AppStorage.lnCategories.keys();
+            const categoryKeys = await AppStorage.novelsCategories.keys();
             console.log('[SYNC] Found %d category entries', categoryKeys.length);
             
             for (const key of categoryKeys) {
-                const category = await AppStorage.lnCategories.getItem<any>(key);
+                const category = await AppStorage.novelsCategories.getItem<any>(key);
                 if (category) {
                     // Migrate snake_case to camelCase if needed
                     const migrated = {
@@ -350,41 +350,41 @@ export class SyncService {
                         createdAt: category.created_at || category.createdAt || Date.now(),
                         lastModified: category.last_modified || category.lastModified || Date.now(),
                     };
-                    payload.lnCategories[key] = migrated;
+                    payload.novelsCategories[key] = migrated;
                 }
             }
-            console.log('[SYNC] Collected %d categories', Object.keys(payload.lnCategories || {}).length);
+            console.log('[SYNC] Collected %d categories', Object.keys(payload.novelsCategories || {}).length);
         }
 
-        // Collect LN Category Metadata (sort settings)
-        if (config.lnMetadata) {
-            const catMetaMsg = 'Collecting LN category metadata...';
+        // Collect Novels Category Metadata (sort settings)
+        if (config.novelsMetadata) {
+            const catMetaMsg = 'Collecting Novels category metadata...';
             console.log('[SYNC] ' + catMetaMsg);
             onProgress?.({ phase: 'collecting', message: catMetaMsg });
             
-            const catMetaKeys = await AppStorage.lnCategoryMetadata.keys();
+            const catMetaKeys = await AppStorage.novelsCategoryMetadata.keys();
             console.log('[SYNC] Found %d category metadata entries', catMetaKeys.length);
             
             for (const key of catMetaKeys) {
-                const catMeta = await AppStorage.lnCategoryMetadata.getItem<any>(key);
+                const catMeta = await AppStorage.novelsCategoryMetadata.getItem<any>(key);
                 if (catMeta) {
-                    payload.lnCategoryMetadata[key] = {
+                    payload.novelsCategoryMetadata[key] = {
                         sortBy: catMeta.sortBy || catMeta.sort_by || 'dateAdded',
                         sortDesc: catMeta.sortDesc ?? catMeta.sort_desc ?? true,
                     };
                 }
             }
-            console.log('[SYNC] Collected %d category metadata', Object.keys(payload.lnCategoryMetadata || {}).length);
+            console.log('[SYNC] Collected %d category metadata', Object.keys(payload.novelsCategoryMetadata || {}).length);
         }
 
         console.log('[SYNC] ===== LOCAL DATA COLLECTION COMPLETE =====');
         console.log('[SYNC] Summary: %d progress, %d metadata, %d content, %d files, %d categories, %d categoryMetadata',
-            Object.keys(payload.lnProgress).length,
-            Object.keys(payload.lnMetadata).length,
-            Object.keys(payload.lnContent || {}).length,
+            Object.keys(payload.novelsProgress).length,
+            Object.keys(payload.novelsMetadata).length,
+            Object.keys(payload.novelsContent || {}).length,
             Object.keys(payload.lnFiles || {}).length,
-            Object.keys(payload.lnCategories || {}).length,
-            Object.keys(payload.lnCategoryMetadata || {}).length);
+            Object.keys(payload.novelsCategories || {}).length,
+            Object.keys(payload.novelsCategoryMetadata || {}).length);
 
         return payload;
     }
@@ -399,13 +399,13 @@ export class SyncService {
         onProgress?: (progress: SyncProgress) => void,
     ): Promise<void> {
         // Apply progress
-        if (config.lnProgress) {
+        if (config.novelsProgress) {
             onProgress?.({ phase: 'applying', message: 'Applying reading progress...' });
-            const entries = Object.entries(payload.lnProgress);
+            const entries = Object.entries(payload.novelsProgress);
             
             for (let i = 0; i < entries.length; i++) {
                 const [bookId, progress] = entries[i];
-                await AppStorage.lnProgress.setItem(bookId, progress);
+                await AppStorage.novelsProgress.setItem(bookId, progress);
                 
                 onProgress?.({
                     phase: 'applying',
@@ -416,24 +416,24 @@ export class SyncService {
         }
 
         // Apply metadata
-        if (config.lnMetadata) {
+        if (config.novelsMetadata) {
             onProgress?.({ phase: 'applying', message: 'Applying book metadata...' });
-            const entries = Object.entries(payload.lnMetadata);
+            const entries = Object.entries(payload.novelsMetadata);
             
             // Collect all language settings from downloaded metadata
-            const allDownloadedSettings: Record<string, LNReaderSettings> = {};
+            const allDownloadedSettings: Record<string, NovelsReaderSettings> = {};
             
             for (let i = 0; i < entries.length; i++) {
                 const [bookId, metadata] = entries[i];
-                await AppStorage.lnMetadata.setItem(bookId, metadata);
+                await AppStorage.novelsMetadata.setItem(bookId, metadata);
                 
                 // Collect language settings for localStorage
                 const settings = metadata.languageSettings || metadata.language_settings;
                 if (settings) {
-                    for (const [lang, lnSettings] of Object.entries(settings)) {
+                    for (const [lang, novelsSettings] of Object.entries(settings)) {
                         // Only keep the latest version for each language (first wins since we iterate sequentially)
                         if (!allDownloadedSettings[lang]) {
-                            allDownloadedSettings[lang] = lnSettings;
+                            allDownloadedSettings[lang] = novelsSettings;
                         }
                     }
                 }
@@ -447,9 +447,9 @@ export class SyncService {
         }
 
         // Apply content
-        if (config.lnContent && payload.lnContent) {
+        if (config.novelsContent && payload.novelsContent) {
             onProgress?.({ phase: 'applying', message: 'Applying parsed content...' });
-            const entries = Object.entries(payload.lnContent);
+            const entries = Object.entries(payload.novelsContent);
             
             for (let i = 0; i < entries.length; i++) {
                 const [bookId, content] = entries[i];
@@ -460,7 +460,7 @@ export class SyncService {
                     imageBlobs[imgKey] = this.base64ToBlob(base64);
                 }
                 
-                await AppStorage.lnContent.setItem(bookId, {
+                await AppStorage.novelsContent.setItem(bookId, {
                     ...content,
                     imageBlobs,
                 });
@@ -491,28 +491,28 @@ export class SyncService {
             }
         }
 
-        // Apply LN Categories
-        if (config.lnMetadata && payload.lnCategories) {
-            onProgress?.({ phase: 'applying', message: 'Applying LN categories...' });
-            const entries = Object.entries(payload.lnCategories);
+        // Apply Novels Categories
+        if (config.novelsMetadata && payload.novelsCategories) {
+            onProgress?.({ phase: 'applying', message: 'Applying Novels categories...' });
+            const entries = Object.entries(payload.novelsCategories);
             
             for (const [categoryId, category] of entries) {
-                const existing = await AppStorage.lnCategories.getItem(categoryId);
+                const existing = await AppStorage.novelsCategories.getItem(categoryId);
                 if (!existing || (category.lastModified || 0) > (existing.lastModified || 0)) {
-                    await AppStorage.lnCategories.setItem(categoryId, category);
+                    await AppStorage.novelsCategories.setItem(categoryId, category);
                 }
             }
         }
 
-        // Apply LN Category Metadata (sort settings)
-        if (config.lnMetadata && payload.lnCategoryMetadata) {
-            onProgress?.({ phase: 'applying', message: 'Applying LN category metadata...' });
-            const entries = Object.entries(payload.lnCategoryMetadata);
+        // Apply Novels Category Metadata (sort settings)
+        if (config.novelsMetadata && payload.novelsCategoryMetadata) {
+            onProgress?.({ phase: 'applying', message: 'Applying Novels category metadata...' });
+            const entries = Object.entries(payload.novelsCategoryMetadata);
             
             for (const [categoryId, catMeta] of entries) {
-                const existing = await AppStorage.lnCategoryMetadata.getItem(categoryId);
+                const existing = await AppStorage.novelsCategoryMetadata.getItem(categoryId);
                 // Always overwrite with remote (sort settings are simple)
-                await AppStorage.lnCategoryMetadata.setItem(categoryId, catMeta);
+                await AppStorage.novelsCategoryMetadata.setItem(categoryId, catMeta);
             }
         }
     }

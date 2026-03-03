@@ -53,17 +53,17 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
     isSaved,
     onSaveNow,
 }) => {
-    const [isLocked, setIsLocked] = useState(settings?.lnLockProgressBar ?? false);
+    const [isLocked, setIsLocked] = useState(settings?.novelsLockProgressBar ?? false);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        setIsLocked(settings?.lnLockProgressBar ?? false);
-    }, [settings?.lnLockProgressBar]);
+        setIsLocked(settings?.novelsLockProgressBar ?? false);
+    }, [settings?.novelsLockProgressBar]);
 
     const toggleLock = () => {
         const newLocked = !isLocked;
         setIsLocked(newLocked);
-        onUpdateSettings('lnLockProgressBar', newLocked);
+        onUpdateSettings('novelsLockProgressBar', newLocked);
     };
 
     const handleSaveNow = useCallback(async () => {
@@ -89,8 +89,8 @@ export const ReaderNavigationUI: React.FC<ReaderNavigationUIProps> = ({
     const chapterProgress = currentPosition?.chapterProgress || 0;
 
     const showPageSlider = showSlider && mode === 'paged' && totalPages && totalPages > 1 && onPageChange && currentPage !== undefined;
-    const showCharProgress = settings?.lnShowCharProgress ?? false;
-    const showNavButtons = visible && !(settings?.lnHideNavButtons ?? false);
+    const showCharProgress = settings?.novelsShowCharProgress ?? false;
+    const showNavButtons = visible && !(settings?.novelsHideNavButtons ?? false);
 
     return (
         <div className={`reader-navigation-ui ${isVisible ? 'visible' : 'hidden'}`}>

@@ -2,7 +2,7 @@
 import JSZip from 'jszip';
 import DOMPurify from 'dompurify';
 import { resolvePath } from '../reader/utils/pathUtils';
-import { BookStats, LNMetadata, LNParsedBook } from '@/lib/storage/AppStorage';
+import { BookStats, NovelsMetadata, NovelsParsedBook } from '@/lib/storage/AppStorage';
 import { processChapterHTML, getCleanCharacterCount, logBlockMapStats } from '../reader/utils/blockProcessor';
 import { BlockIndexMap, ChapterBlockInfo } from '../reader/types/block';
 
@@ -12,8 +12,8 @@ import { BlockIndexMap, ChapterBlockInfo } from '../reader/types/block';
 
 export interface ParseResult {
     success: boolean;
-    metadata?: LNMetadata;
-    content?: LNParsedBook;
+    metadata?: NovelsMetadata;
+    content?: NovelsParsedBook;
     error?: string;
 }
 
@@ -604,7 +604,7 @@ export async function parseEpub(
         // 11. Build Results
         // ====================================================================
 
-        const metadata: LNMetadata = {
+        const metadata: NovelsMetadata = {
             id: bookId,
             title,
             author,
@@ -618,7 +618,7 @@ export async function parseEpub(
             categoryIds: [],
         };
 
-        const parsedBook: LNParsedBook = {
+        const parsedBook: NovelsParsedBook = {
             chapters,
             chapterFilenames,
             imageBlobs,

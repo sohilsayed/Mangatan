@@ -88,7 +88,7 @@ import {
     ANIME_HOTKEY_LABELS,
     DEFAULT_ANIME_HOTKEYS,
 } from '@/Manatan/hotkeys/AnimeHotkeys.ts';
-import { getPopupTheme } from '@/features/ln/reader/utils/themes';
+import { getPopupTheme } from '@/features/novels/reader/utils/themes';
 
 type SubtitleTrack = {
     url: string;

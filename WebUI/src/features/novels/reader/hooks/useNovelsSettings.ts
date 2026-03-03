@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-    LNReaderSettings,
-    getDefaultLnSettings,
-    getLnSettingsAsFullSettings,
-    mergeWithDefaultLnSettings,
-    normalizeLnSettingsLanguage,
-    readLegacyLnSettingsFromLocalStorage,
-    saveLegacyLnSettingsToLocalStorage,
-} from '../utils/lnSettings';
-import { MANATAN_LN_SETTINGS_META_KEY, getServerMetaJson, setServerMetaJson } from '@/Manatan/services/ServerMetaStorage.ts';
+    NovelsReaderSettings,
+    getDefaultNovelsSettings,
+    getNovelsSettingsAsFullSettings,
+    mergeWithDefaultNovelsSettings,
+    normalizeNovelsSettingsLanguage,
+    readLegacyNovelsSettingsFromLocalStorage,
+    saveLegacyNovelsSettingsToLocalStorage,
+} from '../utils/novelsSettings';
+import { MANATAN_NOVELS_SETTINGS_META_KEY, getServerMetaJson, setServerMetaJson } from '@/Manatan/services/ServerMetaStorage.ts';
 
-export function useLnSettings(language: string | undefined) {
-    const effectiveLanguage = normalizeLnSettingsLanguage(language);
-    const [settings, setSettingsState] = useState<LNReaderSettings>(() => getDefaultLnSettings());
-    const settingsByLanguageRef = useRef<Record<string, LNReaderSettings>>({});
+export function useNovelsSettings(language: string | undefined) {
+    const effectiveLanguage = normalizeNovelsSettingsLanguage(language);
+    const [settings, setSettingsState] = useState<NovelsReaderSettings>(() => getDefaultNovelsSettings());
+    const settingsByLanguageRef = useRef<Record<string, NovelsReaderSettings>>({});
     const effectiveLanguageRef = useRef(effectiveLanguage);
     const hasLoadedInitialSettingsRef = useRef(false);
     const saveTimeoutRef = useRef<number | undefined>(undefined);
@@ -26,37 +26,37 @@ export function useLnSettings(language: string | undefined) {
         let cancelled = false;
 
         const loadSettings = async () => {
-            const legacySettings = readLegacyLnSettingsFromLocalStorage();
+            const legacySettings = readLegacyNovelsSettingsFromLocalStorage();
             try {
-                const serverSettingsRaw = await getServerMetaJson<Record<string, Partial<LNReaderSettings>> | null>(
-                    MANATAN_LN_SETTINGS_META_KEY,
+                const serverSettingsRaw = await getServerMetaJson<Record<string, Partial<NovelsReaderSettings>> | null>(
+                    MANATAN_NOVELS_SETTINGS_META_KEY,
                     null,
                 );
                 if (cancelled) {
                     return;
                 }
 
-                const serverSettings = Object.entries(serverSettingsRaw ?? {}).reduce<Record<string, LNReaderSettings>>(
+                const serverSettings = Object.entries(serverSettingsRaw ?? {}).reduce<Record<string, NovelsReaderSettings>>(
                     (acc, [lang, langSettings]) => ({
                         ...acc,
-                        [normalizeLnSettingsLanguage(lang)]: mergeWithDefaultLnSettings(langSettings),
+                        [normalizeNovelsSettingsLanguage(lang)]: mergeWithDefaultNovelsSettings(langSettings),
                     }),
                     {},
                 );
 
                 const mergedSettings = { ...legacySettings, ...serverSettings };
                 settingsByLanguageRef.current = mergedSettings;
-                setSettingsState(mergedSettings[effectiveLanguageRef.current] ?? getDefaultLnSettings());
+                setSettingsState(mergedSettings[effectiveLanguageRef.current] ?? getDefaultNovelsSettings());
                 hasLoadedInitialSettingsRef.current = true;
 
                 const shouldMigrateLegacy = Object.keys(legacySettings).some((lang) => !serverSettings[lang]);
                 if (shouldMigrateLegacy) {
-                    await setServerMetaJson(MANATAN_LN_SETTINGS_META_KEY, mergedSettings);
+                    await setServerMetaJson(MANATAN_NOVELS_SETTINGS_META_KEY, mergedSettings);
                 }
             } catch (error) {
-                console.error('[LNSettings] Failed to load settings from server metadata:', error);
+                console.error('[NovelsSettings] Failed to load settings from server metadata:', error);
                 settingsByLanguageRef.current = legacySettings;
-                setSettingsState(legacySettings[effectiveLanguageRef.current] ?? getDefaultLnSettings());
+                setSettingsState(legacySettings[effectiveLanguageRef.current] ?? getDefaultNovelsSettings());
                 hasLoadedInitialSettingsRef.current = true;
             }
         };
@@ -75,28 +75,28 @@ export function useLnSettings(language: string | undefined) {
         if (!hasLoadedInitialSettingsRef.current) {
             return;
         }
-        setSettingsState(settingsByLanguageRef.current[effectiveLanguage] ?? getDefaultLnSettings());
+        setSettingsState(settingsByLanguageRef.current[effectiveLanguage] ?? getDefaultNovelsSettings());
     }, [effectiveLanguage]);
 
     // Get settings as full Settings object for compatibility
-    const fullSettings = useMemo(() => getLnSettingsAsFullSettings(settings), [settings]);
+    const fullSettings = useMemo(() => getNovelsSettingsAsFullSettings(settings), [settings]);
 
-    const schedulePersist = useCallback((settingsByLanguage: Record<string, LNReaderSettings>) => {
+    const schedulePersist = useCallback((settingsByLanguage: Record<string, NovelsReaderSettings>) => {
         if (saveTimeoutRef.current !== undefined) {
             window.clearTimeout(saveTimeoutRef.current);
         }
 
         saveTimeoutRef.current = window.setTimeout(() => {
-            setServerMetaJson(MANATAN_LN_SETTINGS_META_KEY, settingsByLanguage).catch((error) => {
-                console.error('[LNSettings] Failed to persist settings to server metadata:', error);
+            setServerMetaJson(MANATAN_NOVELS_SETTINGS_META_KEY, settingsByLanguage).catch((error) => {
+                console.error('[NovelsSettings] Failed to persist settings to server metadata:', error);
             });
         }, 300);
 
         // Keep legacy local cache in sync for backward compatibility and migration safety.
-        saveLegacyLnSettingsToLocalStorage(settingsByLanguage);
+        saveLegacyNovelsSettingsToLocalStorage(settingsByLanguage);
     }, []);
 
-    const saveLanguageSettings = useCallback((nextSettings: LNReaderSettings) => {
+    const saveLanguageSettings = useCallback((nextSettings: NovelsReaderSettings) => {
         const nextByLanguage = {
             ...settingsByLanguageRef.current,
             [effectiveLanguage]: nextSettings,
@@ -108,7 +108,7 @@ export function useLnSettings(language: string | undefined) {
         }
     }, [effectiveLanguage, schedulePersist]);
 
-    const setSettings = useCallback((updates: Partial<LNReaderSettings>) => {
+    const setSettings = useCallback((updates: Partial<NovelsReaderSettings>) => {
         setSettingsState(prev => {
             const updated = { ...prev, ...updates };
             saveLanguageSettings(updated);
@@ -117,9 +117,9 @@ export function useLnSettings(language: string | undefined) {
     }, [saveLanguageSettings]);
 
     // Update a single setting
-    const updateSetting = useCallback(<K extends keyof LNReaderSettings>(
+    const updateSetting = useCallback(<K extends keyof NovelsReaderSettings>(
         key: K,
-        value: LNReaderSettings[K]
+        value: NovelsReaderSettings[K]
     ) => {
         setSettingsState(prev => {
             const updated = { ...prev, [key]: value };

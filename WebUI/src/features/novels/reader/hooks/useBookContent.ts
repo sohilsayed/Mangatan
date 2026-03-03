@@ -1,13 +1,13 @@
 
 
 import { useState, useEffect, useRef } from 'react';
-import { AppStorage, LNMetadata, BookStats } from '@/lib/storage/AppStorage';
+import { AppStorage, NovelsMetadata, BookStats } from '@/lib/storage/AppStorage';
 import { requestManager } from '@/lib/requests/RequestManager';
 
 export interface BookContent {
     chapters: string[];
     stats: BookStats;
-    metadata: LNMetadata;
+    metadata: NovelsMetadata;
     chapterFilenames: string[];
 }
 
@@ -41,7 +41,7 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
 
             try {
 
-                const metadata = await AppStorage.getLnMetadata(bookId);
+                const metadata = await AppStorage.getNovelsMetadata(bookId);
 
                 if (cancelled) return;
 
@@ -56,7 +56,7 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                 const staticBase = `${baseUrl}/api/novel/static/${bookId}`;
 
                 // Fetch chapter list (just to be sure we have the filenames/count)
-                const parsedBook = await AppStorage.getLnContent(bookId);
+                const parsedBook = await AppStorage.getNovelsContent(bookId);
 
                 if (cancelled) return;
 

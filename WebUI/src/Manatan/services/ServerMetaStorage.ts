@@ -2,7 +2,7 @@ import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { MetaType } from '@/lib/requests/types.ts';
 
 export const MANATAN_SETTINGS_META_KEY = 'manatan_settings_v1';
-export const MANATAN_LN_SETTINGS_META_KEY = 'manatan_ln_settings_by_language_v1';
+export const MANATAN_NOVELS_SETTINGS_META_KEY = 'manatan_novels_settings_by_language_v1';
 export const MANATAN_SRS_UI_STATE_META_KEY = 'manatan_srs_ui_state_v1';
 
 const toMetaMap = (nodes?: MetaType[]): Record<string, string> => {

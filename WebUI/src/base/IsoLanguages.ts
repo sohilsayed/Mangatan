@@ -444,7 +444,7 @@ export const IsoLanguages: { [languageCode in I18nResourceCode]: ISOLanguage } &
         name: 'Limburgish',
         nativeName: 'Limburgs',
     },
-    ln: {
+    novels: {
         name: 'Lingala',
         nativeName: 'Lingála',
     },

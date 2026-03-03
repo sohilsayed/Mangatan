@@ -12,7 +12,7 @@ import { useSync } from '../services/SyncContext';
 import { SyncConfig } from '../Sync.types';
 
 interface DataOption {
-    key: keyof Pick<SyncConfig, 'lnProgress' | 'lnMetadata' | 'lnContent' | 'lnFiles'>;
+    key: keyof Pick<SyncConfig, 'novelsProgress' | 'novelsMetadata' | 'novelsContent' | 'lnFiles'>;
     label: string;
     description: string;
     warning?: boolean;
@@ -20,17 +20,17 @@ interface DataOption {
 
 const DATA_OPTIONS: DataOption[] = [
     {
-        key: 'lnProgress',
+        key: 'novelsProgress',
         label: 'Reading Progress',
         description: 'Current chapter, page position, and reading history',
     },
     {
-        key: 'lnMetadata',
+        key: 'novelsMetadata',
         label: 'Book Metadata',
         description: 'Title, author, cover, and table of contents',
     },
     {
-        key: 'lnContent',
+        key: 'novelsContent',
         label: 'Parsed Content',
         description: 'Processed chapters and extracted images',
     },

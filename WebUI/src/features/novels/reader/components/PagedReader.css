@@ -47,11 +47,15 @@
 }
 
 /* Break avoidance */
-.paged-content p,
-.paged-content blockquote,
 .paged-content figure,
 .paged-content pre {
     break-inside: avoid;
+}
+
+/* Allow paragraphs to break across pages */
+.paged-content p,
+.paged-content blockquote {
+    break-inside: auto;
 }
 
 .paged-content h1,

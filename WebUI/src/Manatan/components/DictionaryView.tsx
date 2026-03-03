@@ -15,7 +15,7 @@ import {
 } from '@/Manatan/utils/wordAudio';
 import { DictionaryResult, WordAudioSource, WordAudioSourceSelection } from '@/Manatan/types';
 import { PronunciationSection, extractPronunciationData, getKanaMorae } from './Pronunciation';
-import { PopupTheme } from '@/features/ln/reader/utils/themes';
+import { PopupTheme } from '@/features/novels/reader/utils/themes';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
 import StarIcon from '@mui/icons-material/Star';
 import StarBorderIcon from '@mui/icons-material/StarBorder';

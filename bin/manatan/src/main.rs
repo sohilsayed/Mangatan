@@ -181,8 +181,8 @@ struct Cli {
     local_anime_path: Option<PathBuf>,
 
     /// Local novel directory (absolute or relative to data dir)
-    #[arg(long, env = "MANATAN_LOCAL_LN_PATH")]
-    local_novel_path: Option<PathBuf>,
+    #[arg(long, env = "MANATAN_LOCAL_NOVELS_PATH")]
+    local_novels_path: Option<PathBuf>,
 }
 
 fn parse_boolish(value: &str) -> Result<bool, String> {
@@ -1153,8 +1153,8 @@ async fn run_server(
         resolve_path_option(cli.local_manga_path.as_ref(), data_dir, "local-manga");
     let local_anime_path =
         resolve_path_option(cli.local_anime_path.as_ref(), data_dir, "local-anime");
-    let local_novel_path_str =
-        resolve_path_option(cli.local_novel_path.as_ref(), data_dir, "local-novel");
+    let local_novels_path_str =
+        resolve_path_option(cli.local_novels_path.as_ref(), data_dir, "local-novel");
     let manatan_config = ManatanServerConfig {
         host: host.to_string(),
         port,
@@ -1185,7 +1185,7 @@ async fn run_server(
     let yomitan_router = manatan_yomitan_server::create_router(data_dir.clone());
     let audio_router = manatan_audio_server::create_router(data_dir.clone());
     let sync_router = manatan_sync_server::create_router(data_dir.clone());
-    let novel_router = manatan_novel_server::create_router(data_dir.clone(), PathBuf::from(local_novel_path_str));
+    let novel_router = manatan_novel_server::create_router(data_dir.clone(), PathBuf::from(local_novels_path_str));
     let system_router = Router::new().route("/version", any(current_version_handler));
 
     let cors = CorsLayer::new()

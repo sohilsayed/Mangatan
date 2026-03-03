@@ -6,7 +6,7 @@ import { PagedReader } from './PagedReader';
 import { ContinuousReader } from './ContinuousReader';
 import { useUIVisibility } from '../hooks/useUIVisibility';
 import { injectHighlightsIntoHtml } from '../utils/injectHighlights';
-import { BookStats, AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
+import { BookStats, AppStorage, NovelsHighlight } from '@/lib/storage/AppStorage';
 
 interface VirtualReaderProps {
     bookId: string;
@@ -40,7 +40,7 @@ interface VirtualReaderProps {
         blockLocalOffset?: number;
         contextSnippet?: string;
     }) => void;
-    highlights?: LNHighlight[];
+    highlights?: NovelsHighlight[];
     onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
     safeAreaTopInset?: string;
     safeAreaTopOffsetPx?: number;
@@ -108,8 +108,8 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
     const forceSaveRef = useRef<(() => Promise<void>) | null>(null);
     const prevSettingsRef = useRef({
-        direction: settings.lnReadingDirection,
-        mode: settings.lnPaginationMode,
+        direction: settings.novelsReadingDirection,
+        mode: settings.novelsPaginationMode,
     });
 
     const [readerKey, setReaderKey] = useState(0);
@@ -130,11 +130,11 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         }
     }, [externalInitialProgress, initialIndex, initialPage]);
 
-    const isPaged = settings.lnPaginationMode === 'paginated';
-    const isVertical = settings.lnReadingDirection?.includes('vertical');
-    const isRTL = settings.lnReadingDirection === 'vertical-rtl';
+    const isPaged = settings.novelsPaginationMode === 'paginated';
+    const isVertical = settings.novelsReadingDirection?.includes('vertical');
+    const isRTL = settings.novelsReadingDirection === 'vertical-rtl';
 
-    const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
+    const getHighlightsForChapter = useCallback((chapterIndex: number): NovelsHighlight[] => {
         return highlights?.filter(h => h.chapterIndex === chapterIndex) ?? [];
     }, [highlights]);
 
@@ -197,15 +197,15 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         const prevDirection = prevSettingsRef.current.direction;
         const prevMode = prevSettingsRef.current.mode;
 
-        const directionChanged = prevDirection !== settings.lnReadingDirection;
-        const modeChanged = prevMode !== settings.lnPaginationMode;
+        const directionChanged = prevDirection !== settings.novelsReadingDirection;
+        const modeChanged = prevMode !== settings.novelsPaginationMode;
 
         if (directionChanged || modeChanged) {
             console.log('[VirtualReader] Settings changed, triggering save before switch');
 
             prevSettingsRef.current = {
-                direction: settings.lnReadingDirection,
-                mode: settings.lnPaginationMode,
+                direction: settings.novelsReadingDirection,
+                mode: settings.novelsPaginationMode,
             };
 
             setPendingRemount(true);
@@ -226,8 +226,8 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
                 });
 
                 if (pos.sentenceText || pos.chapterCharOffset > 0) {
-                    const existing = await AppStorage.getLnProgress(bookId);
-                    await AppStorage.saveLnProgress(bookId, {
+                    const existing = await AppStorage.getNovelsProgress(bookId);
+                    await AppStorage.saveNovelsProgress(bookId, {
                         chapterIndex: pos.chapterIndex,
                         pageNumber: pos.pageIndex,
                         chapterCharOffset: pos.chapterCharOffset,
@@ -263,7 +263,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
             doSaveAndSwitch();
         }
-    }, [settings.lnReadingDirection, settings.lnPaginationMode, bookId]);
+    }, [settings.novelsReadingDirection, settings.novelsPaginationMode, bookId]);
 
 
 

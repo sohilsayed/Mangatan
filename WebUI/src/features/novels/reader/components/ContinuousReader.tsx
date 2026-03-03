@@ -94,8 +94,8 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         createSaveScheduler({
             bookId,
             debounceMs: SAVE_DEBOUNCE_MS,
-            autoSaveEnabled: settings.lnAutoBookmark ?? true,
-            saveDelay: settings.lnBookmarkDelay ?? 0,
+            autoSaveEnabled: settings.novelsAutoBookmark ?? true,
+            saveDelay: settings.novelsBookmarkDelay ?? 0,
             onSaveStatusChange: setIsSaved,
         })
     );
@@ -125,10 +125,10 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     useEffect(() => {
         saveSchedulerRef.current.updateOptions({
             bookId,
-            autoSaveEnabled: settings.lnAutoBookmark ?? true,
-            saveDelay: settings.lnBookmarkDelay ?? 0,
+            autoSaveEnabled: settings.novelsAutoBookmark ?? true,
+            saveDelay: settings.novelsBookmarkDelay ?? 0,
         });
-    }, [bookId, settings.lnAutoBookmark, settings.lnBookmarkDelay]);
+    }, [bookId, settings.novelsAutoBookmark, settings.novelsBookmarkDelay]);
 
     // Reset restoration when initialProgress changes (for search/highlight navigation)
     const lastInitialProgressRef = useRef(initialProgress);
@@ -163,8 +163,8 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // ========================================================================
 
     const theme = useMemo(
-        () => getReaderTheme(settings.lnTheme),
-        [settings.lnTheme]
+        () => getReaderTheme(settings.novelsTheme),
+        [settings.novelsTheme]
     );
 
     const navOptions = useMemo(
@@ -659,7 +659,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     }, []);
 
     const handlePointerMove = useCallback((e: React.PointerEvent) => {
-        const threshold = settings.lnDragThreshold ?? 10;
+        const threshold = settings.novelsDragThreshold ?? 10;
         if (!isDraggingRef.current) {
             const dx = Math.abs(e.clientX - startPosRef.current.x);
             const dy = Math.abs(e.clientY - startPosRef.current.y);
@@ -667,7 +667,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 isDraggingRef.current = true;
             }
         }
-    }, [settings.lnDragThreshold]);
+    }, [settings.novelsDragThreshold]);
 
     const handleContentClick = useCallback(async (e: React.MouseEvent) => {
         if (isDraggingRef.current) return;
@@ -721,7 +721,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         if (!container) return;
 
         const amount = 200;
-        const behavior = settings.lnDisableAnimations ? 'auto' : 'smooth';
+        const behavior = settings.novelsDisableAnimations ? 'auto' : 'smooth';
 
         if (isVertical) {
             const delta = forward ? (isRTL ? -amount : amount) : (isRTL ? amount : -amount);
@@ -729,7 +729,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         } else {
             container.scrollBy({ top: forward ? amount : -amount, behavior });
         }
-    }, [isVertical, isRTL, settings.lnDisableAnimations]);
+    }, [isVertical, isRTL, settings.novelsDisableAnimations]);
 
     // ========================================================================
     // EPUB Link Handler
@@ -790,7 +790,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         const container = containerRef.current;
         if (!container || !isVertical) return;
 
-        const lineHeightPx = (settings.lnFontSize || 18) * (settings.lnLineHeight || 1.8);
+        const lineHeightPx = (settings.novelsFontSize || 18) * (settings.novelsLineHeight || 1.8);
 
         const handleWheel = (e: WheelEvent) => {
             if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -809,7 +809,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
 
         container.addEventListener('wheel', handleWheel, { passive: false });
         return () => container.removeEventListener('wheel', handleWheel);
-    }, [isVertical, isRTL, settings.lnFontSize, settings.lnLineHeight]);
+    }, [isVertical, isRTL, settings.novelsFontSize, settings.novelsLineHeight]);
 
     const handleSaveNow = useCallback(async (): Promise<boolean> => {
         return await saveSchedulerRef.current.saveNow();
@@ -870,7 +870,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
 
     // Memoized wrapper style to prevent re-renders on UI toggle
     const wrapperStyle = useMemo(() => {
-        const brightness = settings.lnTextBrightness ?? 100;
+        const brightness = settings.novelsTextBrightness ?? 100;
         const textColor = brightness === 100 
             ? theme.fg 
             : adjustBrightness(theme.fg, brightness);
@@ -880,13 +880,13 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             color: textColor,
             direction: isRTL ? 'rtl' : 'ltr',
         };
-    }, [theme.bg, theme.fg, isRTL, settings.lnTextBrightness]);
+    }, [theme.bg, theme.fg, isRTL, settings.novelsTextBrightness]);
 
     // Memoized content style to prevent re-renders on UI toggle
     const contentStyle = useMemo(() => {
-        let fontFamily = settings.lnFontFamily || "'Noto Serif JP', serif";
-        if (settings.lnSecondaryFontFamily) {
-            fontFamily = `${fontFamily}, ${settings.lnSecondaryFontFamily}`;
+        let fontFamily = settings.novelsFontFamily || "'Noto Serif JP', serif";
+        if (settings.novelsSecondaryFontFamily) {
+            fontFamily = `${fontFamily}, ${settings.novelsSecondaryFontFamily}`;
         }
         
         return {
@@ -894,9 +894,9 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             textOrientation: isVertical ? 'mixed' : undefined,
             direction: 'ltr',
             fontFamily,
-            fontWeight: settings.lnFontWeight || 400,
+            fontWeight: settings.novelsFontWeight || 400,
         };
-    }, [isVertical, settings.lnFontFamily, settings.lnSecondaryFontFamily, settings.lnFontWeight]);
+    }, [isVertical, settings.novelsFontFamily, settings.novelsSecondaryFontFamily, settings.novelsFontWeight]);
 
     const handleUpdateSettings = onUpdateSettings ?? (() => {});
 
@@ -904,7 +904,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         <div
     className={`continuous-reader-wrapper ${isRTL ? 'rtl-mode' : 'ltr-mode'}`}
     style={wrapperStyle}
-    data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
+    data-dark-mode={settings.novelsTheme === 'dark' || settings.novelsTheme === 'black'}
 >
             <div
                 ref={containerRef}
@@ -920,7 +920,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             >
                 <div
                     ref={contentRef}
-                    className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                    className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.novelsEnableFurigana ? 'furigana-hidden' : ''}`}
                     style={contentStyle}
                 >
                     {chapters.map((_, index) => (
@@ -962,7 +962,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             <SelectionHandles 
                 containerRef={contentRef}
                 enabled={contentLoaded}
-                theme={(settings.lnTheme as 'light' | 'sepia' | 'dark' | 'black') || 'dark'}
+                theme={(settings.novelsTheme as 'light' | 'sepia' | 'dark' | 'black') || 'dark'}
                 onSelectionComplete={(text, startOffset, endOffset, blockId) => {
                     if (onAddHighlight && currentChapter && blockId) {
                         onAddHighlight(currentChapter, blockId, text, startOffset, endOffset);

@@ -1,18 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
-import { AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
+import { AppStorage, NovelsHighlight } from '@/lib/storage/AppStorage';
 
 function generateId(): string {
     return `hl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 export function useHighlights(bookId: string) {
-    const [highlights, setHighlights] = useState<LNHighlight[]>([]);
+    const [highlights, setHighlights] = useState<NovelsHighlight[]>([]);
     const [loading, setLoading] = useState(true);
 
     const load = useCallback(async () => {
         try {
             setLoading(true);
-            const progress = await AppStorage.getLnProgress(bookId);
+            const progress = await AppStorage.getNovelsProgress(bookId);
             setHighlights(progress?.highlights ?? []);
         } catch (e) {
             console.warn('[useHighlights] Failed to load:', e);
@@ -26,10 +26,10 @@ export function useHighlights(bookId: string) {
         load();
     }, [load]);
 
-    const saveHighlights = useCallback(async (newHighlights: LNHighlight[]) => {
+    const saveHighlights = useCallback(async (newHighlights: NovelsHighlight[]) => {
         try {
-            const existing = await AppStorage.getLnProgress(bookId);
-            await AppStorage.saveLnProgress(bookId, {
+            const existing = await AppStorage.getNovelsProgress(bookId);
+            await AppStorage.saveNovelsProgress(bookId, {
                 chapterIndex: existing?.chapterIndex ?? 0,
                 pageNumber: existing?.pageNumber,
                 chapterCharOffset: existing?.chapterCharOffset ?? 0,
@@ -66,7 +66,7 @@ export function useHighlights(bookId: string) {
             return null;
         }
 
-        const newHighlight: LNHighlight = {
+        const newHighlight: NovelsHighlight = {
             id: generateId(),
             chapterIndex,
             blockId,
@@ -88,14 +88,14 @@ export function useHighlights(bookId: string) {
         await saveHighlights(updated);
     }, [highlights, saveHighlights]);
 
-    const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
+    const getHighlightsForChapter = useCallback((chapterIndex: number): NovelsHighlight[] => {
         return highlights.filter(h => h.chapterIndex === chapterIndex);
     }, [highlights]);
 
     const exportToTxt = useCallback((chapterTitles: string[]): string => {
         const lines: string[] = [];
         
-        const byChapter = new Map<number, LNHighlight[]>();
+        const byChapter = new Map<number, NovelsHighlight[]>();
         for (const h of highlights) {
             const list = byChapter.get(h.chapterIndex) ?? [];
             list.push(h);

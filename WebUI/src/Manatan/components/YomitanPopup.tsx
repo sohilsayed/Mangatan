@@ -5,7 +5,7 @@ import { cleanPunctuation, lookupYomitan } from '@/Manatan/utils/api';
 import { DictionaryView } from '@/Manatan/components/DictionaryView';
 import { DictionaryResult } from '@/Manatan/types';
 import { buildScopedCustomCss } from '@/Manatan/utils/customCss';
-import { getPopupTheme } from '@/features/ln/reader/utils/themes';
+import { getPopupTheme } from '@/features/novels/reader/utils/themes';
 
 const POPUP_GAP = 10;
 const POPUP_MIN_WIDTH_PX = 280;

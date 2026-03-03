@@ -24,7 +24,7 @@ async fn set_config(
 ) -> Result<Json<SyncConfig>, SyncError> {
     info!(
         "[CONFIG] Config updated - sync settings: progress={}, metadata={}, content={}, files={}",
-        config.ln_progress, config.ln_metadata, config.ln_content, config.ln_files
+        config.novels_progress, config.novels_metadata, config.novels_content, config.novels_files
     );
     state.set_sync_config(&config)?;
     Ok(Json(config))

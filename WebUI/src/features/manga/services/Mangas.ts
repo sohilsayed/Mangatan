@@ -667,7 +667,7 @@ export class Mangas {
                 mangaType,
                 ['ja', i18next.language, manga.source?.lang]
                     .filter((lng) => !!lng)
-                    .flatMap((language) => tags.flatMap((tag) => translate(tag, { lng: language }))),
+                    .flatMap((language) => tags.flatMap((tag) => translate(tag, { novelsg: language }))),
             ],
         );
         const translatedMangaTagsByMangaType = Object.fromEntries(translateMangaTagsByMangaTypeEntries) as Record<

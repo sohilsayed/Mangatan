@@ -139,35 +139,35 @@ export interface Settings {
     showHarmonicMeanFreq: boolean;
     ankiFreqMode: string;
     // Light Novel Settings
-    lnFontSize: number;
-    lnLineHeight: number;
-    lnFontFamily: string;
-    lnTheme: 'light' | 'sepia' | 'dark' | 'black';
-    lnReadingDirection: 'horizontal' | 'vertical-rtl' | 'vertical-ltr';
-    lnPaginationMode: 'scroll' | 'paginated' | 'single-page';
-    lnPageWidth: number;
-    lnPageMargin: number;
-    lnEnableFurigana: boolean;
-    lnTextAlign: 'left' | 'center' | 'justify';
-    lnLetterSpacing: number;
-    lnParagraphSpacing: number;
-    lnFontWeight: number;
-    lnSecondaryFontFamily: string;
-    lnTextBrightness: number;
-    lnDisableAnimations: boolean;
-    lnLockProgressBar?: boolean;
-    lnShowCharProgress?: boolean;
-     lnAutoBookmark?: boolean;         
-    lnBookmarkDelay?: number;  
+    novelsFontSize: number;
+    novelsLineHeight: number;
+    novelsFontFamily: string;
+    novelsTheme: 'light' | 'sepia' | 'dark' | 'black';
+    novelsReadingDirection: 'horizontal' | 'vertical-rtl' | 'vertical-ltr';
+    novelsPaginationMode: 'scroll' | 'paginated' | 'single-page';
+    novelsPageWidth: number;
+    novelsPageMargin: number;
+    novelsEnableFurigana: boolean;
+    novelsTextAlign: 'left' | 'center' | 'justify';
+    novelsLetterSpacing: number;
+    novelsParagraphSpacing: number;
+    novelsFontWeight: number;
+    novelsSecondaryFontFamily: string;
+    novelsTextBrightness: number;
+    novelsDisableAnimations: boolean;
+    novelsLockProgressBar?: boolean;
+    novelsShowCharProgress?: boolean;
+     novelsAutoBookmark?: boolean;
+    novelsBookmarkDelay?: number;
     // Navigation settings
-    lnHideNavButtons?: boolean;
-    lnEnableClickZones?: boolean;
-    lnClickZoneSize?: number;
-    lnClickZonePosition?: 'full' | 'start' | 'center' | 'end';
-    lnClickZoneCoverage?: number;
-    lnClickZonePlacement?: 'horizontal' | 'vertical';
-    lnEnableSwipe?: boolean;   
-    lnDragThreshold?: number;   
+    novelsHideNavButtons?: boolean;
+    novelsEnableClickZones?: boolean;
+    novelsClickZoneSize?: number;
+    novelsClickZonePosition?: 'full' | 'start' | 'center' | 'end';
+    novelsClickZoneCoverage?: number;
+    novelsClickZonePlacement?: 'horizontal' | 'vertical';
+    novelsEnableSwipe?: boolean;
+    novelsDragThreshold?: number;
     // Dropdown setting for grouping behavior
     resultGroupingMode: 'grouped' | 'flat';
     yomitanLookupNavigationMode: 'tabs' | 'stacked';
@@ -243,7 +243,7 @@ export interface DictPopupContext {
     spreadData?: { leftSrc: string; rightSrc: string };
     sentence: string;
     source?: {
-        kind: 'manga' | 'ln';
+        kind: 'manga' | 'novels';
         bookId?: string;
         chapterIndex?: number;
     };
@@ -264,7 +264,7 @@ export interface DictPopupState {
         length: number;
         rects?: Rect[];
         source?: {
-            kind: 'manga' | 'ln';
+            kind: 'manga' | 'novels';
             bookId?: string;
             chapterIndex?: number;
         };
@@ -380,36 +380,36 @@ export const DEFAULT_SETTINGS: Settings = {
     skipAnkiUpdateConfirm: false,
     showHarmonicMeanFreq: false,
     ankiFreqMode: 'lowest',
-    // LN Defaults
-    lnFontSize: 16,
-    lnLineHeight: 1.6,
-    lnFontFamily: "'Noto Serif JP', serif",
-    lnTheme: 'light',
-    lnReadingDirection: 'vertical-rtl',
-    lnPaginationMode: 'paginated',
-    lnPageWidth: 800,
-    lnPageMargin: 40,
-    lnEnableFurigana: true,
-    lnTextAlign: 'justify',
-    lnLetterSpacing: 0,
-    lnParagraphSpacing: 1.5,
-    lnFontWeight: 400,
-    lnSecondaryFontFamily: '',
-    lnTextBrightness: 100,
-    lnDisableAnimations: true,
-    lnLockProgressBar: false,
-    lnShowCharProgress: false,
-    lnAutoBookmark: true,
-    lnBookmarkDelay: 15,
+    // Novels Defaults
+    novelsFontSize: 16,
+    novelsLineHeight: 1.6,
+    novelsFontFamily: "'Noto Serif JP', serif",
+    novelsTheme: 'light',
+    novelsReadingDirection: 'vertical-rtl',
+    novelsPaginationMode: 'paginated',
+    novelsPageWidth: 800,
+    novelsPageMargin: 40,
+    novelsEnableFurigana: true,
+    novelsTextAlign: 'justify',
+    novelsLetterSpacing: 0,
+    novelsParagraphSpacing: 1.5,
+    novelsFontWeight: 400,
+    novelsSecondaryFontFamily: '',
+    novelsTextBrightness: 100,
+    novelsDisableAnimations: true,
+    novelsLockProgressBar: false,
+    novelsShowCharProgress: false,
+    novelsAutoBookmark: true,
+    novelsBookmarkDelay: 15,
     // Navigation defaults
-    lnHideNavButtons: false,
-    lnEnableClickZones: true,
-    lnClickZoneSize: 10,
-    lnClickZonePosition: 'full',
-    lnClickZoneCoverage: 60,
-    lnClickZonePlacement: 'vertical',
-    lnEnableSwipe: true,
-    lnDragThreshold: 10,
+    novelsHideNavButtons: false,
+    novelsEnableClickZones: true,
+    novelsClickZoneSize: 10,
+    novelsClickZonePosition: 'full',
+    novelsClickZoneCoverage: 60,
+    novelsClickZonePlacement: 'vertical',
+    novelsEnableSwipe: true,
+    novelsDragThreshold: 10,
 };
 
 export const COLOR_THEMES: Record<ColorTheme, { accent: string; background: string }> = {

@@ -75,19 +75,19 @@ fn scan_local_novel(state: &NovelState) -> anyhow::Result<()> {
             let sidecar_data: serde_json::Value = serde_json::from_str(&content)?;
 
             if let Some(metadata) = sidecar_data.get("metadata") {
-                let meta: LNMetadata = serde_json::from_value(metadata.clone())?;
+                let meta: NovelsMetadata = serde_json::from_value(metadata.clone())?;
                 let bytes = serde_json::to_vec(&meta)?;
                 state.db.insert(format!("metadata:{}", id), bytes)?;
             }
 
             if let Some(progress) = sidecar_data.get("progress") {
-                let prog: LNProgress = serde_json::from_value(progress.clone())?;
+                let prog: NovelsProgress = serde_json::from_value(progress.clone())?;
                 let bytes = serde_json::to_vec(&prog)?;
                 state.db.insert(format!("progress:{}", id), bytes)?;
             }
 
             if let Some(content) = sidecar_data.get("content") {
-                let parsed: LNParsedBook = serde_json::from_value(content.clone())?;
+                let parsed: NovelsParsedBook = serde_json::from_value(content.clone())?;
                 let bytes = serde_json::to_vec(&parsed)?;
                 state.db.insert(format!("content:{}", id), bytes)?;
             }
@@ -100,14 +100,14 @@ fn scan_local_novel(state: &NovelState) -> anyhow::Result<()> {
         if let Ok(content) = fs::read_to_string(&categories_path) {
             if let Ok(sidecar_data) = serde_json::from_str::<serde_json::Value>(&content) {
                 if let Some(categories) = sidecar_data.get("categories") {
-                    if let Ok(cats) = serde_json::from_value::<Vec<LnCategory>>(categories.clone()) {
+                    if let Ok(cats) = serde_json::from_value::<Vec<NovelsCategory>>(categories.clone()) {
                         for cat in cats {
                             let _ = state.db.insert(format!("category:{}", cat.id), serde_json::to_vec(&cat).unwrap_or_default());
                         }
                     }
                 }
                 if let Some(metadata) = sidecar_data.get("metadata") {
-                    if let Ok(meta_map) = serde_json::from_value::<HashMap<String, LnCategoryMetadata>>(metadata.clone()) {
+                    if let Ok(meta_map) = serde_json::from_value::<HashMap<String, NovelsCategoryMetadata>>(metadata.clone()) {
                         for (id, meta) in meta_map {
                             let _ = state.db.insert(format!("category_metadata:{}", id), serde_json::to_vec(&meta).unwrap_or_default());
                         }

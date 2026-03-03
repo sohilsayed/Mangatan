@@ -1216,7 +1216,7 @@ async fn start_web_server(
         .unwrap_or_else(|_| default_local_manga_dir.to_string_lossy().to_string());
     let local_anime_path = std::env::var("MANATAN_LOCAL_ANIME_PATH")
         .unwrap_or_else(|_| default_local_anime_dir.to_string_lossy().to_string());
-    let local_novel_path = std::env::var("MANATAN_LOCAL_LN_PATH")
+    let local_novels_path = std::env::var("MANATAN_LOCAL_NOVELS_PATH")
         .unwrap_or_else(|_| default_local_novel_dir.to_string_lossy().to_string());
     let manatan_config = ManatanServerConfig {
         host: "0.0.0.0".to_string(),
@@ -1235,12 +1235,12 @@ async fn start_web_server(
         local_anime_path,
     };
 
-    // Note: ManatanServerConfig might need update if it's supposed to hold local_novel_path
+    // Note: ManatanServerConfig might need update if it's supposed to hold local_novels_path
     // but the actual router initialization below uses it.
     let manatan_state = build_state(manatan_config).await?;
     let manatan_router = build_router_without_cors(manatan_state);
     let sync_router = manatan_sync_server::create_router(data_dir.clone());
-    let novel_router = manatan_novel_server::create_router(data_dir.clone(), PathBuf::from(local_novel_path.clone()));
+    let novel_router = manatan_novel_server::create_router(data_dir.clone(), PathBuf::from(local_novels_path.clone()));
 
     let ocr_router = manatan_ocr_server::create_router(data_dir.clone());
     let yomitan_router = manatan_yomitan_server::create_router(data_dir.clone());

@@ -1,14 +1,14 @@
-import { LNHighlight } from '@/lib/storage/AppStorage';
+import { NovelsHighlight } from '@/lib/storage/AppStorage';
 
 export function injectHighlightsIntoHtml(
     html: string,
-    highlights: LNHighlight[]
+    highlights: NovelsHighlight[]
 ): string {
     if (highlights.length === 0) {
         return html;
     }
 
-    const highlightsByBlock = new Map<string, LNHighlight[]>();
+    const highlightsByBlock = new Map<string, NovelsHighlight[]>();
     for (const h of highlights) {
         const list = highlightsByBlock.get(h.blockId) ?? [];
         list.push(h);

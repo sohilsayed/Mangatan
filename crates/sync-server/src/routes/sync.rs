@@ -58,7 +58,7 @@ async fn merge_handler(
         state.set_sync_config(&config)?;
         info!(
             "[MERGE] Config updated - sync settings: progress={}, metadata={}, content={}, files={}",
-            config.ln_progress, config.ln_metadata, config.ln_content, config.ln_files
+            config.novels_progress, config.novels_metadata, config.novels_content, config.novels_files
         );
     }
 
@@ -66,13 +66,13 @@ async fn merge_handler(
     let local_payload = req.payload;
 
     // Log local data summary
-    let local_progress_count = local_payload.ln_progress.len();
-    let local_metadata_count = local_payload.ln_metadata.len();
+    let local_progress_count = local_payload.novels_progress.len();
+    let local_metadata_count = local_payload.novels_metadata.len();
 
     // FIX 1: Removed .as_ref().map(...).unwrap_or(0).
     // These fields are HashMaps, so they always exist (even if empty).
-    let local_content_count = local_payload.ln_content.len();
-    let local_files_count = local_payload.ln_files.len();
+    let local_content_count = local_payload.novels_content.len();
+    let local_files_count = local_payload.novels_files.len();
 
     info!(
         "[MERGE] Local data: {} progress, {} metadata, {} content entries, {} files",
@@ -89,11 +89,11 @@ async fn merge_handler(
     let (merged_payload, conflicts, etag) = if let Some((remote_payload, remote_etag)) =
         remote_result
     {
-        let remote_progress_count = remote_payload.ln_progress.len();
-        let remote_metadata_count = remote_payload.ln_metadata.len();
+        let remote_progress_count = remote_payload.novels_progress.len();
+        let remote_metadata_count = remote_payload.novels_metadata.len();
 
         // FIX 2: Same fix for remote payload
-        let remote_content_count = remote_payload.ln_content.len();
+        let remote_content_count = remote_payload.novels_content.len();
 
         info!(
             "[MERGE] Remote data downloaded: {} progress, {} metadata, {} content entries",
@@ -117,8 +117,8 @@ async fn merge_handler(
             info!("[MERGE] Merging payloads...");
             let (merged, conflicts) = merge_payloads(local_payload, remote_payload, &device_id);
 
-            let merged_progress = merged.ln_progress.len();
-            let merged_metadata = merged.ln_metadata.len();
+            let merged_progress = merged.novels_progress.len();
+            let merged_metadata = merged.novels_metadata.len();
             info!(
                 "[MERGE] Merge complete: {} progress entries, {} metadata entries, {} conflicts",
                 merged_progress,
@@ -157,8 +157,8 @@ async fn merge_handler(
     let now = chrono::Utc::now().timestamp_millis();
     state.set_last_sync(now)?;
 
-    let final_progress = merged_payload.ln_progress.len();
-    let final_metadata = merged_payload.ln_metadata.len();
+    let final_progress = merged_payload.novels_progress.len();
+    let final_metadata = merged_payload.novels_metadata.len();
     info!("[MERGE] ========== SYNC COMPLETE ==========");
     info!("[MERGE] Timestamp: {}", now);
     info!(
@@ -191,8 +191,8 @@ async fn pull_handler(
 
     match &result {
         Some((payload, etag)) => {
-            let progress_count = payload.ln_progress.len();
-            let metadata_count = payload.ln_metadata.len();
+            let progress_count = payload.novels_progress.len();
+            let metadata_count = payload.novels_metadata.len();
             info!(
                 "[PULL] Downloaded: {} progress, {} metadata entries, etag: {}",
                 progress_count, metadata_count, etag
@@ -227,8 +227,8 @@ async fn push_handler(
 ) -> Result<Json<PushResponse>, SyncError> {
     info!("[PUSH] Starting push operation...");
 
-    let payload_size = req.payload.ln_progress.len();
-    let metadata_size = req.payload.ln_metadata.len();
+    let payload_size = req.payload.novels_progress.len();
+    let metadata_size = req.payload.novels_metadata.len();
     info!(
         "[PUSH] Pushing: {} progress, {} metadata entries",
         payload_size, metadata_size

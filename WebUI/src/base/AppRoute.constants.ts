@@ -268,13 +268,13 @@ export const AppRoutes = {
         match: 'dictionary',
         path: '/dictionary',
     },
-    ln: {
-        match: 'ln',
-        path: '/ln',
+    novels: {
+        match: 'novels',
+        path: '/novels',
         childRoutes: {
             reader: {
                 match: ':id/read',
-                path: (id: string) => `/ln/${id}/read`,
+                path: (id: string) => `/novels/${id}/read`,
             },
         },
     },

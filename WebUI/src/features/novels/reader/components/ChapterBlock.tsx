@@ -26,22 +26,22 @@ export const ChapterBlock: React.FC<ChapterBlockProps> = React.memo(
         }
 
         // Build font family with secondary font
-        let fontFamily = settings.lnFontFamily || "'Noto Serif JP', serif";
-        if (settings.lnSecondaryFontFamily) {
-            fontFamily = `${fontFamily}, ${settings.lnSecondaryFontFamily}`;
+        let fontFamily = settings.novelsFontFamily || "'Noto Serif JP', serif";
+        if (settings.novelsSecondaryFontFamily) {
+            fontFamily = `${fontFamily}, ${settings.novelsSecondaryFontFamily}`;
         }
 
         return (
             <section
-                className={`chapter-block ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''
+                className={`chapter-block ${isVertical ? 'vertical' : 'horizontal'} ${!settings.novelsEnableFurigana ? 'furigana-hidden' : ''
                     }`}
                 data-chapter={index}
                 style={{
-                    padding: `${settings.lnPageMargin || 20}px`,
-                    maxWidth: !isVertical ? `${settings.lnPageWidth || 800}px` : undefined,
-                    textAlign: (settings.lnTextAlign as any) || 'justify',
+                    padding: `${settings.novelsPageMargin || 20}px`,
+                    maxWidth: !isVertical ? `${settings.novelsPageWidth || 800}px` : undefined,
+                    textAlign: (settings.novelsTextAlign as any) || 'justify',
                     fontFamily,
-                    fontWeight: settings.lnFontWeight || 400,
+                    fontWeight: settings.novelsFontWeight || 400,
                 }}
             >
                 <div

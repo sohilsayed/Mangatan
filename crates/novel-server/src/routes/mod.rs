@@ -31,21 +31,21 @@ pub fn router() -> Router<NovelState> {
         .route("/file/{id}", get(get_epub))
 }
 
-async fn get_all_metadata(State(state): State<NovelState>) -> Result<Json<Vec<LNMetadata>>, NovelError> {
+async fn get_all_metadata(State(state): State<NovelState>) -> Result<Json<Vec<NovelsMetadata>>, NovelError> {
     let mut all_metadata = Vec::new();
     for item in state.db.scan_prefix("metadata:") {
         let (_, v) = item?;
-        let metadata: LNMetadata = serde_json::from_slice(&v)?;
+        let metadata: NovelsMetadata = serde_json::from_slice(&v)?;
         all_metadata.push(metadata);
     }
     all_metadata.sort_by(|a, b| b.added_at.cmp(&a.added_at));
     Ok(Json(all_metadata))
 }
 
-async fn get_metadata(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<LNMetadata>, NovelError> {
+async fn get_metadata(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<NovelsMetadata>, NovelError> {
     let key = format!("metadata:{}", id);
     let v = state.db.get(key)?.ok_or(NovelError::NotFound)?;
-    let metadata: LNMetadata = serde_json::from_slice(&v)?;
+    let metadata: NovelsMetadata = serde_json::from_slice(&v)?;
     Ok(Json(metadata))
 }
 
@@ -87,10 +87,10 @@ async fn delete_book(State(state): State<NovelState>, Path(id): Path<String>) ->
     Ok(())
 }
 
-async fn get_content(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<LNParsedBook>, NovelError> {
+async fn get_content(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<NovelsParsedBook>, NovelError> {
     let key = format!("content:{}", id);
     let v = state.db.get(key)?.ok_or(NovelError::NotFound)?;
-    let mut content: LNParsedBook = serde_json::from_slice(&v)?;
+    let mut content: NovelsParsedBook = serde_json::from_slice(&v)?;
 
     // Optimization: Don't send large image blobs over the wire, use static serving instead
     content.image_blobs = HashMap::new();
@@ -98,7 +98,7 @@ async fn get_content(State(state): State<NovelState>, Path(id): Path<String>) ->
     Ok(Json(content))
 }
 
-async fn save_content(State(state): State<NovelState>, Path(id): Path<String>, Json(content): Json<LNParsedBook>) -> Result<(), NovelError> {
+async fn save_content(State(state): State<NovelState>, Path(id): Path<String>, Json(content): Json<NovelsParsedBook>) -> Result<(), NovelError> {
     let key = format!("content:{}", id);
 
     // Save to DB for sync compatibility
@@ -155,11 +155,11 @@ async fn save_content(State(state): State<NovelState>, Path(id): Path<String>, J
     Ok(())
 }
 
-async fn get_progress(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<Option<LNProgress>>, NovelError> {
+async fn get_progress(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<Option<NovelsProgress>>, NovelError> {
     let key = format!("progress:{}", id);
     let v = state.db.get(key)?;
     if let Some(bytes) = v {
-        let progress: LNProgress = serde_json::from_slice(&bytes)?;
+        let progress: NovelsProgress = serde_json::from_slice(&bytes)?;
         Ok(Json(Some(progress)))
     } else {
         Ok(Json(None))
@@ -190,11 +190,11 @@ async fn update_progress(State(state): State<NovelState>, Path(id): Path<String>
     Ok(())
 }
 
-async fn get_categories(State(state): State<NovelState>) -> Result<Json<Vec<LnCategory>>, NovelError> {
+async fn get_categories(State(state): State<NovelState>) -> Result<Json<Vec<NovelsCategory>>, NovelError> {
     let mut categories = Vec::new();
     for item in state.db.scan_prefix("category:") {
         let (_, v) = item?;
-        let category: LnCategory = serde_json::from_slice(&v)?;
+        let category: NovelsCategory = serde_json::from_slice(&v)?;
         categories.push(category);
     }
     categories.sort_by(|a, b| a.order.cmp(&b.order));
@@ -205,7 +205,7 @@ async fn save_global_categories(state: &NovelState) -> Result<(), NovelError> {
     let mut categories = Vec::new();
     for item in state.db.scan_prefix("category:") {
         let (_, v) = item?;
-        let category: LnCategory = serde_json::from_slice(&v)?;
+        let category: NovelsCategory = serde_json::from_slice(&v)?;
         categories.push(category);
     }
 
@@ -214,7 +214,7 @@ async fn save_global_categories(state: &NovelState) -> Result<(), NovelError> {
         let (k, v) = item?;
         let key_str = String::from_utf8_lossy(&k);
         let id = key_str.strip_prefix("category_metadata:").unwrap_or(&key_str).to_string();
-        let meta: LnCategoryMetadata = serde_json::from_slice(&v)?;
+        let meta: NovelsCategoryMetadata = serde_json::from_slice(&v)?;
         meta_map.insert(id, meta);
     }
 
@@ -231,7 +231,7 @@ async fn save_global_categories(state: &NovelState) -> Result<(), NovelError> {
     Ok(())
 }
 
-async fn create_category(State(state): State<NovelState>, Json(category): Json<LnCategory>) -> Result<Json<LnCategory>, NovelError> {
+async fn create_category(State(state): State<NovelState>, Json(category): Json<NovelsCategory>) -> Result<Json<NovelsCategory>, NovelError> {
     let key = format!("category:{}", category.id);
     let bytes = serde_json::to_vec(&category)?;
     state.db.insert(key, bytes)?;
@@ -240,7 +240,7 @@ async fn create_category(State(state): State<NovelState>, Json(category): Json<L
     Ok(Json(category))
 }
 
-async fn update_category(State(state): State<NovelState>, Path(id): Path<String>, Json(category): Json<LnCategory>) -> Result<(), NovelError> {
+async fn update_category(State(state): State<NovelState>, Path(id): Path<String>, Json(category): Json<NovelsCategory>) -> Result<(), NovelError> {
     let key = format!("category:{}", id);
     let bytes = serde_json::to_vec(&category)?;
     state.db.insert(key, bytes)?;
@@ -256,7 +256,7 @@ async fn delete_category(State(state): State<NovelState>, Path(id): Path<String>
     // Remove category from all books
     for item in state.db.scan_prefix("metadata:") {
         let (k, v) = item?;
-        let mut metadata: LNMetadata = serde_json::from_slice(&v)?;
+        let mut metadata: NovelsMetadata = serde_json::from_slice(&v)?;
         if metadata.category_ids.contains(&id) {
             metadata.category_ids.retain(|cid| cid != &id);
             state.db.insert(k, serde_json::to_vec(&metadata)?)?;
@@ -268,30 +268,30 @@ async fn delete_category(State(state): State<NovelState>, Path(id): Path<String>
     Ok(())
 }
 
-async fn get_all_category_metadata(State(state): State<NovelState>) -> Result<Json<HashMap<String, LnCategoryMetadata>>, NovelError> {
+async fn get_all_category_metadata(State(state): State<NovelState>) -> Result<Json<HashMap<String, NovelsCategoryMetadata>>, NovelError> {
     let mut map = HashMap::new();
     for item in state.db.scan_prefix("category_metadata:") {
         let (k, v) = item?;
         let key_str = String::from_utf8_lossy(&k);
         let id = key_str.strip_prefix("category_metadata:").unwrap_or(&key_str).to_string();
-        let meta: LnCategoryMetadata = serde_json::from_slice(&v)?;
+        let meta: NovelsCategoryMetadata = serde_json::from_slice(&v)?;
         map.insert(id, meta);
     }
     Ok(Json(map))
 }
 
-async fn get_category_metadata(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<Option<LnCategoryMetadata>>, NovelError> {
+async fn get_category_metadata(State(state): State<NovelState>, Path(id): Path<String>) -> Result<Json<Option<NovelsCategoryMetadata>>, NovelError> {
     let key = format!("category_metadata:{}", id);
     let v = state.db.get(key)?;
     if let Some(bytes) = v {
-        let meta: LnCategoryMetadata = serde_json::from_slice(&bytes)?;
+        let meta: NovelsCategoryMetadata = serde_json::from_slice(&bytes)?;
         Ok(Json(Some(meta)))
     } else {
         Ok(Json(None))
     }
 }
 
-async fn update_category_metadata(State(state): State<NovelState>, Path(id): Path<String>, Json(meta): Json<LnCategoryMetadata>) -> Result<(), NovelError> {
+async fn update_category_metadata(State(state): State<NovelState>, Path(id): Path<String>, Json(meta): Json<NovelsCategoryMetadata>) -> Result<(), NovelError> {
     let key = format!("category_metadata:{}", id);
     let bytes = serde_json::to_vec(&meta)?;
     state.db.insert(key, bytes)?;

@@ -10,7 +10,7 @@ import { jsonSaveParse } from '@/lib/HelperFunctions.ts';
 import localforage from 'localforage';
 import { requestManager } from '@/lib/requests/RequestManager.ts';
 import { HttpMethod } from '@/lib/requests/client/RestClient.ts';
-import { LNMetadata, LNProgress, LNParsedBook, LnCategory, LnCategoryMetadata } from '@/features/ln/LN.types';
+import { NovelsMetadata, NovelsProgress, NovelsParsedBook, NovelsCategory, NovelsCategoryMetadata } from '@/features/novels/Novels.types';
 
 type StorageBackend = typeof window.localStorage | null;
 
@@ -106,7 +106,7 @@ export class Storage {
 // Types
 // ============================================================================
 
-export * from '@/features/ln/LN.types';
+export * from '@/features/novels/Novels.types';
 
 // ============================================================================
 // Device ID Helper
@@ -195,7 +195,7 @@ class ServerStorage<T> {
     async keys(): Promise<string[]> {
         if (this.storeName === 'novel_metadata') {
             const response = await requestManager.getClient().fetcher(this.endpoint);
-            const data = await response.json() as LNMetadata[];
+            const data = await response.json() as NovelsMetadata[];
             return data.map(m => m.id);
         }
         return Array.from(this.memCache.keys());
@@ -243,11 +243,11 @@ export class AppStorage {
     };
 
     // Book metadata with stats
-    static readonly lnMetadata = new ServerStorage<LNMetadata>('/api/novel/metadata', 'novel_metadata');
+    static readonly novelsMetadata = new ServerStorage<NovelsMetadata>('/api/novel/metadata', 'novel_metadata');
 
     // Pre-parsed book content
-    static readonly lnContent = {
-        async getItem(key: string): Promise<LNParsedBook | null> {
+    static readonly novelsContent = {
+        async getItem(key: string): Promise<NovelsParsedBook | null> {
             try {
                 const response = await requestManager.getClient().fetcher(`/api/novel/content/${key}`);
                 if (response.status === 404) return null;
@@ -259,7 +259,7 @@ export class AppStorage {
                 return null;
             }
         },
-        async setItem(key: string, content: LNParsedBook): Promise<void> {
+        async setItem(key: string, content: NovelsParsedBook): Promise<void> {
             const imageBlobs: Record<string, string> = {};
             for (const [path, blob] of Object.entries(content.imageBlobs)) {
                 if (typeof blob === 'string') {
@@ -286,13 +286,13 @@ export class AppStorage {
     };
 
     // Reading progress (the bookmark)
-    static readonly lnProgress = new ServerStorage<LNProgress>('/api/novel/progress', 'novel_progress');
+    static readonly novelsProgress = new ServerStorage<NovelsProgress>('/api/novel/progress', 'novel_progress');
 
-    // LN Categories
-    static readonly lnCategories = new ServerStorage<LnCategory>('/api/novel/categories', 'novel_categories');
+    // Novels Categories
+    static readonly novelsCategories = new ServerStorage<NovelsCategory>('/api/novel/categories', 'novel_categories');
 
-    // LN Category metadata (sort settings per category)
-    static readonly lnCategoryMetadata = new ServerStorage<LnCategoryMetadata>('/api/novel/categories/metadata', 'novel_category_metadata');
+    // Novels Category metadata (sort settings per category)
+    static readonly novelsCategoryMetadata = new ServerStorage<NovelsCategoryMetadata>('/api/novel/categories/metadata', 'novel_category_metadata');
 
     // Custom imported fonts
     static readonly customFonts = localforage.createInstance({
@@ -317,28 +317,28 @@ export class AppStorage {
     // Progress Methods
     // ========================================================================
 
-    static async saveLnProgress(
+    static async saveNovelsProgress(
         bookId: string,
-        progress: Omit<LNProgress, 'lastRead' | 'lastModified' | 'syncVersion' | 'deviceId'>
+        progress: Omit<NovelsProgress, 'lastRead' | 'lastModified' | 'syncVersion' | 'deviceId'>
     ): Promise<void> {
-        const existing = await this.getLnProgress(bookId);
+        const existing = await this.getNovelsProgress(bookId);
         const now = Date.now();
 
-        await this.lnProgress.setItem(bookId, {
+        await this.novelsProgress.setItem(bookId, {
             ...progress,
             lastRead: now,
             lastModified: now,
             syncVersion: (existing?.syncVersion || 0) + 1,
             deviceId: getDeviceId(),
-        } as LNProgress);
+        } as NovelsProgress);
     }
 
-    static async getLnProgress(bookId: string): Promise<LNProgress | null> {
-        return await this.lnProgress.getItem(bookId);
+    static async getNovelsProgress(bookId: string): Promise<NovelsProgress | null> {
+        return await this.novelsProgress.getItem(bookId);
     }
 
     static async hasProgress(bookId: string): Promise<boolean> {
-        const progress = await this.getLnProgress(bookId);
+        const progress = await this.getNovelsProgress(bookId);
         return progress !== null && progress.totalProgress > 0;
     }
 
@@ -346,28 +346,28 @@ export class AppStorage {
     // Metadata Methods
     // ========================================================================
 
-    static async getLnMetadata(bookId: string): Promise<LNMetadata | null> {
-        return await this.lnMetadata.getItem(bookId);
+    static async getNovelsMetadata(bookId: string): Promise<NovelsMetadata | null> {
+        return await this.novelsMetadata.getItem(bookId);
     }
 
-    static async saveLnMetadata(metadata: LNMetadata): Promise<void> {
-        await this.lnMetadata.setItem(metadata.id, metadata);
+    static async saveNovelsMetadata(metadata: NovelsMetadata): Promise<void> {
+        await this.novelsMetadata.setItem(metadata.id, metadata);
     }
 
-    static async updateLnMetadata(bookId: string, updates: Partial<LNMetadata>): Promise<void> {
-        const existing = await this.getLnMetadata(bookId);
+    static async updateNovelsMetadata(bookId: string, updates: Partial<NovelsMetadata>): Promise<void> {
+        const existing = await this.getNovelsMetadata(bookId);
         if (!existing) return;
 
-        await this.lnMetadata.setItem(bookId, {
+        await this.novelsMetadata.setItem(bookId, {
             ...existing,
             ...updates,
         });
     }
 
-    static async getAllLnMetadata(): Promise<LNMetadata[]> {
+    static async getAllNovelsMetadata(): Promise<NovelsMetadata[]> {
         try {
             const response = await requestManager.getClient().fetcher('/api/novel/metadata');
-            const data = await response.json() as LNMetadata[];
+            const data = await response.json() as NovelsMetadata[];
             // Instant library mirror update
             localStorage.setItem('manatan_novel_metadata_list', JSON.stringify(data));
             return data;
@@ -382,39 +382,39 @@ export class AppStorage {
     // Content Methods
     // ========================================================================
 
-    static async getLnContent(bookId: string): Promise<LNParsedBook | null> {
-        return await this.lnContent.getItem(bookId);
+    static async getNovelsContent(bookId: string): Promise<NovelsParsedBook | null> {
+        return await this.novelsContent.getItem(bookId);
     }
 
-    static async saveLnContent(bookId: string, content: LNParsedBook): Promise<void> {
-        await this.lnContent.setItem(bookId, content);
+    static async saveNovelsContent(bookId: string, content: NovelsParsedBook): Promise<void> {
+        await this.novelsContent.setItem(bookId, content);
     }
 
     // ========================================================================
     // Delete Methods
     // ========================================================================
 
-    static async deleteLnData(bookId: string): Promise<void> {
+    static async deleteNovelsData(bookId: string): Promise<void> {
         await requestManager.getClient().fetcher(`/api/novel/metadata/${bookId}`, {
             httpMethod: HttpMethod.DELETE
         });
         console.log('[AppStorage] All data deleted for:', bookId);
     }
 
-    static async deleteLnProgress(bookId: string): Promise<void> {
-        await this.lnProgress.removeItem(bookId);
+    static async deleteNovelsProgress(bookId: string): Promise<void> {
+        await this.novelsProgress.removeItem(bookId);
     }
 
     // ========================================================================
     // Sync Methods
     // ========================================================================
 
-    static async getAllProgressForSync(): Promise<Array<{ bookId: string; progress: LNProgress }>> {
-        const metadata = await this.getAllLnMetadata();
-        const allProgress: Array<{ bookId: string; progress: LNProgress }> = [];
+    static async getAllProgressForSync(): Promise<Array<{ bookId: string; progress: NovelsProgress }>> {
+        const metadata = await this.getAllNovelsMetadata();
+        const allProgress: Array<{ bookId: string; progress: NovelsProgress }> = [];
 
         for (const m of metadata) {
-            const progress = await this.getLnProgress(m.id);
+            const progress = await this.getNovelsProgress(m.id);
             if (progress) {
                 allProgress.push({ bookId: m.id, progress });
             }
@@ -423,25 +423,25 @@ export class AppStorage {
         return allProgress;
     }
 
-    static async getProgressModifiedSince(timestamp: number): Promise<Array<{ bookId: string; progress: LNProgress }>> {
+    static async getProgressModifiedSince(timestamp: number): Promise<Array<{ bookId: string; progress: NovelsProgress }>> {
         const all = await this.getAllProgressForSync();
         return all.filter(({ progress }) => (progress.lastModified || 0) > timestamp);
     }
 
     static async mergeRemoteProgress(
         bookId: string, 
-        remoteProgress: LNProgress
-    ): Promise<{ result: 'local' | 'remote' | 'conflict'; merged?: LNProgress }> {
-        const localProgress = await this.getLnProgress(bookId);
+        remoteProgress: NovelsProgress
+    ): Promise<{ result: 'local' | 'remote' | 'conflict'; merged?: NovelsProgress }> {
+        const localProgress = await this.getNovelsProgress(bookId);
 
         if (!localProgress) {
-            await this.lnProgress.setItem(bookId, remoteProgress);
+            await this.novelsProgress.setItem(bookId, remoteProgress);
             return { result: 'remote' };
         }
 
         if (!localProgress.lastModified || !remoteProgress.lastModified) {
             if (remoteProgress.totalProgress > localProgress.totalProgress) {
-                await this.lnProgress.setItem(bookId, remoteProgress);
+                await this.novelsProgress.setItem(bookId, remoteProgress);
                 return { result: 'remote' };
             }
             return { result: 'local' };
@@ -449,20 +449,20 @@ export class AppStorage {
 
         if (localProgress.deviceId === remoteProgress.deviceId) {
             if (remoteProgress.lastModified > localProgress.lastModified) {
-                await this.lnProgress.setItem(bookId, remoteProgress);
+                await this.novelsProgress.setItem(bookId, remoteProgress);
                 return { result: 'remote' };
             }
             return { result: 'local' };
         }
 
         if (remoteProgress.totalProgress > localProgress.totalProgress) {
-            await this.lnProgress.setItem(bookId, remoteProgress);
+            await this.novelsProgress.setItem(bookId, remoteProgress);
             return { result: 'remote' };
         } else if (localProgress.totalProgress > remoteProgress.totalProgress) {
             return { result: 'local' };
         } else {
             if (remoteProgress.lastModified > localProgress.lastModified) {
-                await this.lnProgress.setItem(bookId, remoteProgress);
+                await this.novelsProgress.setItem(bookId, remoteProgress);
                 return { result: 'remote' };
             }
             return { result: 'local' };
@@ -505,7 +505,7 @@ export class AppStorage {
     // ========================================================================
 
     static async hasBookBlocks(bookId: string): Promise<boolean> {
-        const metadata = await this.getLnMetadata(bookId);
+        const metadata = await this.getNovelsMetadata(bookId);
         if (!metadata) return false;
 
         return !!(metadata.stats.blockMaps && metadata.stats.blockMaps.length > 0);
@@ -515,7 +515,7 @@ export class AppStorage {
     // Migration Methods
     // ========================================================================
 
-    static async migrateLnMetadata(): Promise<void> {
+    static async migrateNovelsMetadata(): Promise<void> {
         const legacyMetadata = localforage.createInstance({
             name: 'Manatan',
             storeName: 'novel_metadata',
@@ -549,29 +549,29 @@ export class AppStorage {
 
         const catKeys = await legacyCategories.keys();
         for (const key of catKeys) {
-            const cat = await legacyCategories.getItem<LnCategory>(key);
-            if (cat) await this.saveLnCategory(cat);
+            const cat = await legacyCategories.getItem<NovelsCategory>(key);
+            if (cat) await this.saveNovelsCategory(cat);
         }
 
         const catMetaKeys = await legacyCatMeta.keys();
         for (const key of catMetaKeys) {
-            const meta = await legacyCatMeta.getItem<LnCategoryMetadata>(key);
-            if (meta) await this.setLnCategoryMetadata(key, meta);
+            const meta = await legacyCatMeta.getItem<NovelsCategoryMetadata>(key);
+            if (meta) await this.setNovelsCategoryMetadata(key, meta);
         }
 
         for (const key of keys) {
             try {
-                const metadata = await legacyMetadata.getItem<LNMetadata>(key);
+                const metadata = await legacyMetadata.getItem<NovelsMetadata>(key);
                 if (!metadata) continue;
 
                 const file = await legacyFiles.getItem<Blob>(key);
-                const content = await legacyContent.getItem<LNParsedBook>(key);
-                const progress = await legacyProgress.getItem<LNProgress>(key);
+                const content = await legacyContent.getItem<NovelsParsedBook>(key);
+                const progress = await legacyProgress.getItem<NovelsProgress>(key);
 
                 if (file) await this.files.setItem(key, file);
-                if (content) await this.saveLnContent(key, content);
-                if (progress) await this.lnProgress.setItem(key, progress);
-                await this.saveLnMetadata(metadata);
+                if (content) await this.saveNovelsContent(key, content);
+                if (progress) await this.novelsProgress.setItem(key, progress);
+                await this.saveNovelsMetadata(metadata);
 
                 console.log(`[Migration] Successfully migrated: ${metadata.title}`);
             } catch (e) {
@@ -595,7 +595,7 @@ export class AppStorage {
     // Category Methods
     // ========================================================================
 
-    static async getLnCategories(): Promise<LnCategory[]> {
+    static async getNovelsCategories(): Promise<NovelsCategory[]> {
         try {
             const response = await requestManager.getClient().fetcher('/api/novel/categories');
             return await response.json();
@@ -604,19 +604,19 @@ export class AppStorage {
         }
     }
 
-    static async getLnCategory(categoryId: string): Promise<LnCategory | null> {
-        return await this.lnCategories.getItem(categoryId);
+    static async getNovelsCategory(categoryId: string): Promise<NovelsCategory | null> {
+        return await this.novelsCategories.getItem(categoryId);
     }
 
-    static async saveLnCategory(category: LnCategory): Promise<void> {
-        await this.lnCategories.setItem(category.id, category);
+    static async saveNovelsCategory(category: NovelsCategory): Promise<void> {
+        await this.novelsCategories.setItem(category.id, category);
     }
 
-    static async createLnCategory(name: string): Promise<LnCategory> {
-        const categories = await this.getLnCategories();
+    static async createNovelsCategory(name: string): Promise<NovelsCategory> {
+        const categories = await this.getNovelsCategories();
         const maxOrder = categories.reduce((max, c) => Math.max(max, c.order), -1);
         
-        const newCategory: LnCategory = {
+        const newCategory: NovelsCategory = {
             id: `lncat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             name,
             order: maxOrder + 1,
@@ -631,8 +631,8 @@ export class AppStorage {
         return newCategory;
     }
 
-    static async updateLnCategory(categoryId: string, updates: Partial<LnCategory>): Promise<void> {
-        const existing = await this.getLnCategory(categoryId);
+    static async updateNovelsCategory(categoryId: string, updates: Partial<NovelsCategory>): Promise<void> {
+        const existing = await this.getNovelsCategory(categoryId);
         if (!existing) return;
 
         const updated = {
@@ -641,22 +641,22 @@ export class AppStorage {
             lastModified: Date.now(),
         };
 
-        await this.lnCategories.setItem(categoryId, updated);
+        await this.novelsCategories.setItem(categoryId, updated);
     }
 
-    static async deleteLnCategory(categoryId: string): Promise<void> {
-        await this.lnCategories.removeItem(categoryId);
+    static async deleteNovelsCategory(categoryId: string): Promise<void> {
+        await this.novelsCategories.removeItem(categoryId);
     }
 
-    static async getLnCategoryMetadata(categoryId: string): Promise<LnCategoryMetadata | null> {
-        return await this.lnCategoryMetadata.getItem(categoryId);
+    static async getNovelsCategoryMetadata(categoryId: string): Promise<NovelsCategoryMetadata | null> {
+        return await this.novelsCategoryMetadata.getItem(categoryId);
     }
 
-    static async setLnCategoryMetadata(categoryId: string, metadata: LnCategoryMetadata): Promise<void> {
-        await this.lnCategoryMetadata.setItem(categoryId, metadata);
+    static async setNovelsCategoryMetadata(categoryId: string, metadata: NovelsCategoryMetadata): Promise<void> {
+        await this.novelsCategoryMetadata.setItem(categoryId, metadata);
     }
 
-    static async getAllLnCategoryMetadata(): Promise<Record<string, LnCategoryMetadata>> {
+    static async getAllNovelsCategoryMetadata(): Promise<Record<string, NovelsCategoryMetadata>> {
         try {
             const response = await requestManager.getClient().fetcher('/api/novel/categories/metadata');
             return await response.json();

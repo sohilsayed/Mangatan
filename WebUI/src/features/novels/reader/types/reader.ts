@@ -1,7 +1,7 @@
-// src/ln/reader/types/reader.ts
+// src/novels/reader/types/reader.ts
 
 import { Settings } from '@/Manatan/types';
-import { BookStats, LNHighlight } from '@/lib/storage/AppStorage';
+import { BookStats, NovelsHighlight } from '@/lib/storage/AppStorage';
 
 export interface BaseReaderProps {
     bookId: string;
@@ -41,7 +41,7 @@ export interface BaseReaderProps {
     onRegisterSave?: (saveFn: () => Promise<void>) => void;
     onUpdateSettings?: (key: string, value: any) => void;
     chapterFilenames: string[];
-    highlights?: LNHighlight[];
+    highlights?: NovelsHighlight[];
     onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
     onRemoveHighlight?: (highlightId: string) => void;
 }

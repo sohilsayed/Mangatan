@@ -1,5 +1,5 @@
 /**
- * Text lookup hook for dictionary integration in LN Reader
+ * Text lookup hook for dictionary integration in Novels Reader
  */
 
 import { useCallback } from 'react';
@@ -200,7 +200,7 @@ export function useTextLookup() {
                 startChar: charInfo.offset,
                 length: 1,
                 rects: [],
-                source: { kind: 'ln' }
+                source: { kind: 'novels' }
             },
             context: { sentence }
         });

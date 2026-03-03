@@ -30,11 +30,11 @@ import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import DeleteIcon from '@mui/icons-material/Delete';
 
 import ManatanLogo from '@/Manatan/assets/manatan_logo.png';
-import { AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
+import { AppStorage, NovelsHighlight } from '@/lib/storage/AppStorage';
 import { useBookContent } from '../hooks/useBookContent';
 import { useHighlights } from '../hooks/useHighlights';
-import { useLnSettings } from '../hooks/useLnSettings';
-import { getDefaultLnSettings } from '../utils/lnSettings';
+import { useNovelsSettings } from '../hooks/useNovelsSettings';
+import { getDefaultNovelsSettings } from '../utils/novelsSettings';
 import { VirtualReader } from '../components/VirtualReader';
 import { ReaderControls } from '../components/ReaderControls';
 import { YomitanPopup } from '@/Manatan/components/YomitanPopup';
@@ -47,7 +47,7 @@ const THEMES = {
     black: { bg: '#000000', fg: '#CCCCCC' },
 } as const;
 
-export const LNReaderScreen: React.FC = () => {
+export const NovelsReaderScreen: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const location = useLocation();
@@ -56,12 +56,12 @@ export const LNReaderScreen: React.FC = () => {
     const renderCountRef = useRef(0);
     renderCountRef.current++;
 
-    // Get language from content and use LN-specific settings
+    // Get language from content and use Novels-specific settings
     const { content, isLoading, error } = useBookContent(id);
     const bookLanguage = content?.metadata?.language;
-    const { settings: lnSettings, setSettings: setLnSettings, fullSettings } = useLnSettings(bookLanguage);
+    const { settings: novelsSettings, setSettings: setNovelsSettings, fullSettings } = useNovelsSettings(bookLanguage);
 
-    // Use LN settings only (not OCR settings)
+    // Use Novels settings only (not OCR settings)
     const settings = fullSettings;
     const [savedProgress, setSavedProgress] = useState<any>(null);
     const [tocOpen, setTocOpen] = useState(false);
@@ -105,7 +105,7 @@ export const LNReaderScreen: React.FC = () => {
         downloadFile(json, `${title || 'highlights'}.json`, 'application/json');
     }, [exportToJson, downloadFile]);
 
-    const handleJumpToHighlight = useCallback((hl: LNHighlight) => {
+    const handleJumpToHighlight = useCallback((hl: NovelsHighlight) => {
         // Try direct navigation first (for continuous reader)
         if (hl.blockId && navigationRef.current?.scrollToBlock) {
             navigationRef.current.scrollToBlock(hl.blockId, hl.startOffset);
@@ -125,7 +125,7 @@ export const LNReaderScreen: React.FC = () => {
         setHighlightsOpen(false);
     }, []);
 
-    const handleDeleteHighlight = useCallback((e: React.MouseEvent, hl: LNHighlight) => {
+    const handleDeleteHighlight = useCallback((e: React.MouseEvent, hl: NovelsHighlight) => {
         e.stopPropagation();
         removeHighlight(hl.id);
     }, [removeHighlight]);
@@ -219,7 +219,7 @@ export const LNReaderScreen: React.FC = () => {
 
         const checkBlocksAndShowDialog = async () => {
             const hasBlocks = await AppStorage.hasBookBlocks(id);
-            const migrationKey = `ln_migration_dialog_shown_${id}`;
+            const migrationKey = `novels_migration_dialog_shown_${id}`;
 
             if (!hasBlocks && !localStorage.getItem(migrationKey)) {
                 setShowMigrationDialog(true);
@@ -236,7 +236,7 @@ export const LNReaderScreen: React.FC = () => {
         setSavedProgress(null);
         setProgressLoaded(false);
 
-        AppStorage.getLnProgress(id).then((progress) => {
+        AppStorage.getNovelsProgress(id).then((progress) => {
             setSavedProgress(progress);
             setProgressLoaded(true);
             if (progress?.chapterIndex !== undefined) {
@@ -245,7 +245,7 @@ export const LNReaderScreen: React.FC = () => {
         });
     }, [id]);
 
-    const themeKey = (settings.lnTheme || 'dark') as keyof typeof THEMES;
+    const themeKey = (settings.novelsTheme || 'dark') as keyof typeof THEMES;
     const theme = THEMES[themeKey] || THEMES.dark;
 
     useEffect(() => {
@@ -857,10 +857,10 @@ export const LNReaderScreen: React.FC = () => {
                 open={settingsOpen}
                 onClose={() => setSettingsOpen(false)}
                 settings={fullSettings}
-                onUpdateSettings={(k, v) => setLnSettings({ [k]: v })}
+                onUpdateSettings={(k, v) => setNovelsSettings({ [k]: v })}
                 onResetSettings={() => {
-                    const defaults = getDefaultLnSettings();
-                    setLnSettings(defaults);
+                    const defaults = getDefaultNovelsSettings();
+                    setNovelsSettings(defaults);
                 }}
                 theme={theme}
             />

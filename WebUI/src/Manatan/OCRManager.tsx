@@ -115,7 +115,7 @@ export const OCRManager = () => {
         };
     }, []);
 
-    // Listen for custom event to open settings from LN Reader
+    // Listen for custom event to open settings from Novels Reader
     useEffect(() => {
         const handleOpenSettings = () => {
             openSettings();

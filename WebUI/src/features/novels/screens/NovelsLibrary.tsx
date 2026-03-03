@@ -35,11 +35,11 @@ import AddIcon from '@mui/icons-material/Add';
 import CategoryIcon from '@mui/icons-material/Category';
 import { styled } from '@mui/material/styles';
 
-import { AppStorage, LNMetadata, LnCategory, LnCategoryMetadata } from '@/lib/storage/AppStorage';
+import { AppStorage, NovelsMetadata, NovelsCategory, NovelsCategoryMetadata } from '@/lib/storage/AppStorage';
 import { AppRoutes } from '@/base/AppRoute.constants';
 import { parseEpub, ParseProgress } from '../services/epubParser';
 import { clearBookCache } from '../reader/hooks/useBookContent';
-import { LNCategoriesService, LnSortMode, LnSortModeType } from '../services/LNCategories';
+import { NovelsCategoriesService, NovelsSortMode, NovelsSortModeType } from '../services/NovelsCategories';
 
 import PopupState, { bindMenu, bindTrigger } from 'material-ui-popup-state';
 import { useLongPress } from 'use-long-press';
@@ -57,7 +57,7 @@ import { useNavBarContext } from '@/features/navigation-bar/NavbarContext';
 
 // --- Types ---
 
-interface LibraryItem extends LNMetadata {
+interface LibraryItem extends NovelsMetadata {
     importProgress?: number;
     importMessage?: string;
     lastRead?: number;
@@ -84,7 +84,7 @@ const BottomGradientDoubledDown = styled('div')({
 
 // --- Helper Components ---
 
-type LNLibraryCardProps = {
+type NovelsLibraryCardProps = {
     item: LibraryItem;
     onOpen: (id: string) => void;
     onDelete: (id: string, event: React.MouseEvent) => void;
@@ -95,7 +95,7 @@ type LNLibraryCardProps = {
     onLongPress: (id: string) => void;
 };
 
-const LNLibraryCard = ({ item, onOpen, onDelete, onEdit, isSelectionMode, isSelected, onToggleSelect, onLongPress }: LNLibraryCardProps) => {
+const NovelsLibraryCard = ({ item, onOpen, onDelete, onEdit, isSelectionMode, isSelected, onToggleSelect, onLongPress }: NovelsLibraryCardProps) => {
     const preventMobileContextMenu = MediaQuery.usePreventMobileContextMenu();
     const optionButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -369,7 +369,7 @@ const LNLibraryCard = ({ item, onOpen, onDelete, onEdit, isSelectionMode, isSele
 
 // --- Main Component ---
 
-export const LNLibrary: React.FC = () => {
+export const NovelsLibrary: React.FC = () => {
     const navigate = useNavigate();
     const [library, setLibrary] = useState<LibraryItem[]>([]);
     const [allBooks, setAllBooks] = useState<LibraryItem[]>([]);
@@ -379,10 +379,10 @@ export const LNLibrary: React.FC = () => {
     const [isDragOver, setIsDragOver] = useState(false);
 
     // Category state
-    const [categories, setCategories] = useState<LnCategory[]>([]);
-    const [selectedCategoryId, setSelectedCategoryId] = useState<string>(LNCategoriesService.getAllCategoryId());
-    const [categoryMetadata, setCategoryMetadata] = useState<Record<string, LnCategoryMetadata>>({});
-    const [currentSort, setCurrentSort] = useState<LnCategoryMetadata>({ sortBy: 'dateAdded', sortDesc: true });
+    const [categories, setCategories] = useState<NovelsCategory[]>([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string>(NovelsCategoriesService.getAllCategoryId());
+    const [categoryMetadata, setCategoryMetadata] = useState<Record<string, NovelsCategoryMetadata>>({});
+    const [currentSort, setCurrentSort] = useState<NovelsCategoryMetadata>({ sortBy: 'dateAdded', sortDesc: true });
 
     // Dialog states
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -428,51 +428,51 @@ export const LNLibrary: React.FC = () => {
 
     // Load categories and metadata
     const loadCategories = useCallback(async () => {
-        const cats = await LNCategoriesService.getCategories();
+        const cats = await NovelsCategoriesService.getCategories();
         setCategories(cats);
-        const meta = await LNCategoriesService.getAllCategoryMetadata();
+        const meta = await NovelsCategoriesService.getAllCategoryMetadata();
         setCategoryMetadata(meta);
     }, []);
 
     // Load sort settings for current category
     const loadSortSettings = useCallback(async () => {
-        const sort = await LNCategoriesService.getCategoryMetadata(selectedCategoryId);
+        const sort = await NovelsCategoriesService.getCategoryMetadata(selectedCategoryId);
         setCurrentSort(sort);
     }, [selectedCategoryId]);
 
     // Filter and sort books
-    const filterAndSortBooks = useCallback((books: LibraryItem[], categoryId: string, sort: LnCategoryMetadata): LibraryItem[] => {
+    const filterAndSortBooks = useCallback((books: LibraryItem[], categoryId: string, sort: NovelsCategoryMetadata): LibraryItem[] => {
         let filtered = books;
 
         // Filter by category
-        if (!LNCategoriesService.isAllCategory(categoryId)) {
+        if (!NovelsCategoriesService.isAllCategory(categoryId)) {
             filtered = filtered.filter(book => book.categoryIds?.includes(categoryId));
         }
 
         // Sort
-        const compareFn = LNCategoriesService.compareFn(
+        const compareFn = NovelsCategoriesService.compareFn(
             filtered.map(book => ({ metadata: book, progress: {} })),
-            sort.sortBy as LnSortModeType,
+            sort.sortBy as NovelsSortModeType,
             sort.sortDesc
         );
 
         return [...filtered].sort((a, b) => {
             const multiplier = sort.sortDesc ? -1 : 1;
             switch (sort.sortBy) {
-                case LnSortMode.DATE_ADDED:
+                case NovelsSortMode.DATE_ADDED:
                     return multiplier * (b.addedAt - a.addedAt);
-                case LnSortMode.TITLE:
+                case NovelsSortMode.TITLE:
                     return multiplier * ((a.title || '').localeCompare(b.title || ''));
-                case LnSortMode.AUTHOR:
+                case NovelsSortMode.AUTHOR:
                     return multiplier * ((a.author || '').localeCompare(b.author || ''));
-                case LnSortMode.LENGTH:
+                case NovelsSortMode.LENGTH:
                     // For length: sortDesc=true (longer first), sortDesc=false (shorter first)
                     return multiplier * ((a.stats?.totalLength || 0) - (b.stats?.totalLength || 0));
-                case LnSortMode.LANGUAGE:
+                case NovelsSortMode.LANGUAGE:
                     return multiplier * ((a.language || 'unknown') > (b.language || 'unknown') ? 1 : -1);
-                case LnSortMode.LAST_READ:
+                case NovelsSortMode.LAST_READ:
                     return multiplier * ((b.lastRead || 0) - (a.lastRead || 0));
-                case LnSortMode.PROGRESS:
+                case NovelsSortMode.PROGRESS:
                     return multiplier * ((b.totalProgress || 0) - (a.totalProgress || 0));
                 default:
                     return multiplier * (b.addedAt - a.addedAt);
@@ -502,13 +502,13 @@ export const LNLibrary: React.FC = () => {
     // Load library data
     const loadLibrary = useCallback(async () => {
         try {
-            const keys = await AppStorage.lnMetadata.keys();
+            const keys = await AppStorage.novelsMetadata.keys();
             const items: LibraryItem[] = [];
 
             for (const key of keys) {
-                const metadata = await AppStorage.lnMetadata.getItem<LNMetadata>(key);
+                const metadata = await AppStorage.novelsMetadata.getItem<NovelsMetadata>(key);
                 if (metadata) {
-                    const progress = await AppStorage.lnProgress.getItem(key);
+                    const progress = await AppStorage.novelsProgress.getItem(key);
                     items.push({
                         ...metadata,
                         hasProgress: !!progress,
@@ -527,7 +527,7 @@ export const LNLibrary: React.FC = () => {
     // Initial load on mount
     useEffect(() => {
         const init = async () => {
-            await AppStorage.migrateLnMetadata();
+            await AppStorage.migrateNovelsMetadata();
             await loadCategories();
             await loadLibrary();
         };
@@ -595,7 +595,7 @@ export const LNLibrary: React.FC = () => {
                 }
 
                 clearBookCache(existingBook.id);
-                await AppStorage.deleteLnData(existingBook.id);
+                await AppStorage.deleteNovelsData(existingBook.id);
                 currentLibrary = currentLibrary.filter(item => item.id !== existingBook.id);
                 setLibrary(prev => prev.filter(item => item.id !== existingBook.id));
             }
@@ -653,15 +653,15 @@ export const LNLibrary: React.FC = () => {
                         }
 
                         clearBookCache(duplicateByMetadata.id);
-                        await AppStorage.deleteLnData(duplicateByMetadata.id);
+                        await AppStorage.deleteNovelsData(duplicateByMetadata.id);
                         currentLibrary = currentLibrary.filter(item => item.id !== duplicateByMetadata.id);
                         setLibrary(prev => prev.filter(item => item.id !== duplicateByMetadata.id));
                     }
 
                     await Promise.all([
                         AppStorage.files.setItem(bookId, file),
-                        AppStorage.lnMetadata.setItem(bookId, result.metadata),
-                        AppStorage.lnContent.setItem(bookId, result.content),
+                        AppStorage.novelsMetadata.setItem(bookId, result.metadata),
+                        AppStorage.novelsContent.setItem(bookId, result.content),
                     ]);
 
                     const finalItem: LibraryItem = {
@@ -726,7 +726,7 @@ export const LNLibrary: React.FC = () => {
         clearBookCache(id);
         setLibrary((prev) => prev.filter((item) => item.id !== id));
         setAllBooks((prev) => prev.filter((item) => item.id !== id));
-        await AppStorage.deleteLnData(id);
+        await AppStorage.deleteNovelsData(id);
     }, [confirm]);
 
     const handleEdit = useCallback((item: LibraryItem) => {
@@ -743,14 +743,14 @@ export const LNLibrary: React.FC = () => {
     const handleEditSave = useCallback(async () => {
         if (!editingItem) return;
 
-        const updates: Partial<LNMetadata> = {
+        const updates: Partial<NovelsMetadata> = {
             title: editForm.title,
             author: editForm.author,
             language: editForm.language,
             categoryIds: editForm.categoryIds,
         };
 
-        await AppStorage.updateLnMetadata(editingItem.id, updates);
+        await AppStorage.updateNovelsMetadata(editingItem.id, updates);
 
         setAllBooks((prev) =>
             prev.map((item) =>
@@ -776,7 +776,7 @@ export const LNLibrary: React.FC = () => {
 
         for (const id of selectedIds) {
             clearBookCache(id);
-            await AppStorage.deleteLnData(id);
+            await AppStorage.deleteNovelsData(id);
         }
 
         setLibrary((prev) => prev.filter((item) => !selectedIds.has(item.id)));
@@ -812,7 +812,7 @@ export const LNLibrary: React.FC = () => {
     }, []);
 
     const handleOpen = useCallback((id: string) => {
-        navigate(AppRoutes.ln.childRoutes.reader.path(id));
+        navigate(AppRoutes.novels.childRoutes.reader.path(id));
     }, [navigate]);
 
     // Drag and Drop handlers
@@ -855,7 +855,7 @@ export const LNLibrary: React.FC = () => {
         await handleImport(mockEvent);
     }, [handleImport]);
 
-    const handleSortChange = useCallback(async (newSortBy: LnSortModeType) => {
+    const handleSortChange = useCallback(async (newSortBy: NovelsSortModeType) => {
         const newSort = { ...currentSort };
         if (currentSort.sortBy === newSortBy) {
             newSort.sortDesc = !newSort.sortDesc;
@@ -864,7 +864,7 @@ export const LNLibrary: React.FC = () => {
             newSort.sortDesc = getDefaultSortDesc(newSortBy);
         }
         setCurrentSort(newSort);
-        await LNCategoriesService.setCategoryMetadata(selectedCategoryId, newSort);
+        await NovelsCategoriesService.setCategoryMetadata(selectedCategoryId, newSort);
     }, [currentSort, selectedCategoryId]);
 
     const handleCategoryChange = useCallback((categoryId: string) => {
@@ -877,7 +877,7 @@ export const LNLibrary: React.FC = () => {
 
     const handleCreateCategory = useCallback(async () => {
         if (newCategoryName.trim()) {
-            await LNCategoriesService.createCategory(newCategoryName.trim());
+            await NovelsCategoriesService.createCategory(newCategoryName.trim());
             await loadCategories();
             setNewCategoryName('');
             setAddCategoryDialogOpen(false);
@@ -900,15 +900,15 @@ export const LNLibrary: React.FC = () => {
     // Get default sort direction for each sort type
     const getDefaultSortDesc = (sortBy: string): boolean => {
         switch (sortBy) {
-            case LnSortMode.TITLE:
-            case LnSortMode.AUTHOR:
-            case LnSortMode.LANGUAGE:
+            case NovelsSortMode.TITLE:
+            case NovelsSortMode.AUTHOR:
+            case NovelsSortMode.LANGUAGE:
                 return false; // A to Z (ascending)
-            case LnSortMode.LENGTH:
+            case NovelsSortMode.LENGTH:
                 return true; // Long to short (descending)
-            case LnSortMode.DATE_ADDED:
-            case LnSortMode.LAST_READ:
-            case LnSortMode.PROGRESS:
+            case NovelsSortMode.DATE_ADDED:
+            case NovelsSortMode.LAST_READ:
+            case NovelsSortMode.PROGRESS:
             default:
                 return true; // Newest/most first (descending)
         }
@@ -918,7 +918,7 @@ export const LNLibrary: React.FC = () => {
     const handleToggleSortDirection = useCallback(async () => {
         const newSort = { ...currentSort, sortDesc: !currentSort.sortDesc };
         setCurrentSort(newSort);
-        await LNCategoriesService.setCategoryMetadata(selectedCategoryId, newSort);
+        await NovelsCategoriesService.setCategoryMetadata(selectedCategoryId, newSort);
     }, [currentSort, selectedCategoryId]);
 
     useAppTitle('Novels', 'Novel');
@@ -1100,7 +1100,7 @@ export const LNLibrary: React.FC = () => {
                 >
                     <Tab
                         label="All"
-                        value={LNCategoriesService.getAllCategoryId()}
+                        value={NovelsCategoriesService.getAllCategoryId()}
                         icon={<CategoryIcon />}
                         iconPosition="start"
                     />
@@ -1136,7 +1136,7 @@ export const LNLibrary: React.FC = () => {
             >
                 {library.map((item) => (
                     <Box key={item.id}>
-                        <LNLibraryCard
+                        <NovelsLibraryCard
                             item={item}
                             onOpen={handleOpen}
                             onDelete={handleDelete}

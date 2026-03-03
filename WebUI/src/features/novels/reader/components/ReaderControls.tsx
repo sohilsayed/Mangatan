@@ -108,9 +108,9 @@ export const ReaderControls: React.FC<Props> = ({
     const selectStyles = getSelectStyles(theme);
 
     // Local state for manual inputs
-    const [fontSizeInput, setFontSizeInput] = useState(settings.lnFontSize.toString());
-    const [lineHeightInput, setLineHeightInput] = useState(settings.lnLineHeight.toFixed(1));
-    const [letterSpacingInput, setLetterSpacingInput] = useState(settings.lnLetterSpacing.toString());
+    const [fontSizeInput, setFontSizeInput] = useState(settings.novelsFontSize.toString());
+    const [lineHeightInput, setLineHeightInput] = useState(settings.novelsLineHeight.toFixed(1));
+    const [letterSpacingInput, setLetterSpacingInput] = useState(settings.novelsLetterSpacing.toString());
     
     // Custom fonts state
     const [customFonts, setCustomFonts] = useState<CustomFont[]>([]);
@@ -131,16 +131,16 @@ export const ReaderControls: React.FC<Props> = ({
 
     // Sync local state when settings change
     React.useEffect(() => {
-        setFontSizeInput(settings.lnFontSize.toString());
-        setLineHeightInput(settings.lnLineHeight.toFixed(1));
-        setLetterSpacingInput(settings.lnLetterSpacing.toString());
-    }, [settings.lnFontSize, settings.lnLineHeight, settings.lnLetterSpacing]);
+        setFontSizeInput(settings.novelsFontSize.toString());
+        setLineHeightInput(settings.novelsLineHeight.toFixed(1));
+        setLetterSpacingInput(settings.novelsLetterSpacing.toString());
+    }, [settings.novelsFontSize, settings.novelsLineHeight, settings.novelsLetterSpacing]);
 
     const handleFontSizeChange = (value: string) => {
         setFontSizeInput(value);
         const num = parseInt(value, 10);
         if (!isNaN(num) && num >= 12 && num <= 50) {
-            onUpdateSettings('lnFontSize', num);
+            onUpdateSettings('novelsFontSize', num);
         }
     };
 
@@ -148,10 +148,10 @@ export const ReaderControls: React.FC<Props> = ({
         const num = parseInt(fontSizeInput, 10);
         if (isNaN(num) || num < 12) {
             setFontSizeInput('12');
-            onUpdateSettings('lnFontSize', 12);
+            onUpdateSettings('novelsFontSize', 12);
         } else if (num > 50) {
             setFontSizeInput('50');
-            onUpdateSettings('lnFontSize', 50);
+            onUpdateSettings('novelsFontSize', 50);
         }
     };
 
@@ -159,7 +159,7 @@ export const ReaderControls: React.FC<Props> = ({
         setLineHeightInput(value);
         const num = parseFloat(value);
         if (!isNaN(num) && num >= 1.2 && num <= 2.5) {
-            onUpdateSettings('lnLineHeight', num);
+            onUpdateSettings('novelsLineHeight', num);
         }
     };
 
@@ -167,10 +167,10 @@ export const ReaderControls: React.FC<Props> = ({
         const num = parseFloat(lineHeightInput);
         if (isNaN(num) || num < 1.2) {
             setLineHeightInput('1.2');
-            onUpdateSettings('lnLineHeight', 1.2);
+            onUpdateSettings('novelsLineHeight', 1.2);
         } else if (num > 2.5) {
             setLineHeightInput('2.5');
-            onUpdateSettings('lnLineHeight', 2.5);
+            onUpdateSettings('novelsLineHeight', 2.5);
         } else {
             setLineHeightInput(num.toFixed(1));
         }
@@ -180,7 +180,7 @@ export const ReaderControls: React.FC<Props> = ({
         setLetterSpacingInput(value);
         const num = parseFloat(value);
         if (!isNaN(num) && num >= -2 && num <= 5) {
-            onUpdateSettings('lnLetterSpacing', num);
+            onUpdateSettings('novelsLetterSpacing', num);
         }
     };
 
@@ -188,10 +188,10 @@ export const ReaderControls: React.FC<Props> = ({
         const num = parseFloat(letterSpacingInput);
         if (isNaN(num) || num < -2) {
             setLetterSpacingInput('-2');
-            onUpdateSettings('lnLetterSpacing', -2);
+            onUpdateSettings('novelsLetterSpacing', -2);
         } else if (num > 5) {
             setLetterSpacingInput('5');
-            onUpdateSettings('lnLetterSpacing', 5);
+            onUpdateSettings('novelsLetterSpacing', 5);
         } else {
             setLetterSpacingInput(num.toString());
         }
@@ -222,7 +222,7 @@ export const ReaderControls: React.FC<Props> = ({
         setCustomFonts(updatedFonts);
         
         const fontFamilyWithFallback = `"${font.family}", sans-serif`;
-        onUpdateSettings('lnFontFamily', fontFamilyWithFallback);
+        onUpdateSettings('novelsFontFamily', fontFamilyWithFallback);
         
         
     } catch (error) {
@@ -244,9 +244,9 @@ export const ReaderControls: React.FC<Props> = ({
             setCustomFonts(updatedFonts);
             
             // Reset to default if current font was deleted
-            const currentPrimaryFont = settings.lnFontFamily.split(',')[0].trim().replace(/['"]/g, '');
+            const currentPrimaryFont = settings.novelsFontFamily.split(',')[0].trim().replace(/['"]/g, '');
             if (currentPrimaryFont === font.family) {
-                onUpdateSettings('lnFontFamily', FONT_PRESETS[0].value);
+                onUpdateSettings('novelsFontFamily', FONT_PRESETS[0].value);
             }
         } catch (error) {
             console.error('[ReaderControls] Failed to delete font:', error);
@@ -291,13 +291,13 @@ export const ReaderControls: React.FC<Props> = ({
                         {Object.entries(THEMES).map(([key, t]) => (
                             <Box
                                 key={key}
-                                onClick={() => onUpdateSettings('lnTheme', key)}
+                                onClick={() => onUpdateSettings('novelsTheme', key)}
                                 sx={{
                                     flex: 1,
                                     height: 48,
                                     borderRadius: 1.5,
                                     bgcolor: t.preview,
-                                    border: settings.lnTheme === key
+                                    border: settings.novelsTheme === key
                                         ? '3px solid #4890ff'
                                         : `2px solid ${theme.fg}44`,
                                     cursor: 'pointer',
@@ -326,11 +326,11 @@ export const ReaderControls: React.FC<Props> = ({
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>Text Brightness</Typography>
                             <TextField
                                 size="small"
-                                value={settings.lnTextBrightness ?? 100}
+                                value={settings.novelsTextBrightness ?? 100}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     if (!isNaN(val) && val >= 0 && val <= 200) {
-                                        onUpdateSettings('lnTextBrightness', val);
+                                        onUpdateSettings('novelsTextBrightness', val);
                                     }
                                 }}
                                 type="number"
@@ -342,11 +342,11 @@ export const ReaderControls: React.FC<Props> = ({
                             />
                         </Box>
                         <Slider
-                            value={settings.lnTextBrightness ?? 100}
+                            value={settings.novelsTextBrightness ?? 100}
                             min={0}
                             max={200}
                             step={10}
-                            onChange={(_, v) => onUpdateSettings('lnTextBrightness', v)}
+                            onChange={(_, v) => onUpdateSettings('novelsTextBrightness', v)}
                             sx={{ color: theme.fg }}
                         />
                     </Box>
@@ -369,7 +369,7 @@ export const ReaderControls: React.FC<Props> = ({
         </InputLabel>
         <Select
             value={(() => {
-                const currentFont = settings.lnFontFamily;
+                const currentFont = settings.novelsFontFamily;
                 const primaryFont = currentFont.split(',')[0].trim().replace(/['"]/g, '');
                 
                 // Check if it's a custom font
@@ -394,7 +394,7 @@ export const ReaderControls: React.FC<Props> = ({
     const selectedCustomFont = customFonts.find(f => f.family === v);
     
     if (selectedCustomFont) {
-        const currentFont = settings.lnFontFamily;
+        const currentFont = settings.novelsFontFamily;
         const currentPrimary = currentFont.split(',')[0].trim().replace(/['"]/g, '');
         
         if (currentPrimary === v && currentFont.includes('sans-serif')) {
@@ -402,9 +402,9 @@ export const ReaderControls: React.FC<Props> = ({
         }
         
         const fontStack = `"${v}", sans-serif`; 
-        onUpdateSettings('lnFontFamily', fontStack);
+        onUpdateSettings('novelsFontFamily', fontStack);
     } else {
-        onUpdateSettings('lnFontFamily', v);
+        onUpdateSettings('novelsFontFamily', v);
     }
 }}
             sx={selectStyles}
@@ -489,9 +489,9 @@ export const ReaderControls: React.FC<Props> = ({
                 Font Weight
             </InputLabel>
             <Select
-                value={settings.lnFontWeight ?? 400}
+                value={settings.novelsFontWeight ?? 400}
                 label="Font Weight"
-                onChange={(e: SelectChangeEvent) => onUpdateSettings('lnFontWeight', Number(e.target.value))}
+                onChange={(e: SelectChangeEvent) => onUpdateSettings('novelsFontWeight', Number(e.target.value))}
                 sx={selectStyles}
                 MenuProps={menuProps}
             >
@@ -511,9 +511,9 @@ export const ReaderControls: React.FC<Props> = ({
                 Font Family (Group 2)
             </InputLabel>
             <Select
-                value={settings.lnSecondaryFontFamily || ''}
+                value={settings.novelsSecondaryFontFamily || ''}
                 label="Font Family (Group 2)"
-                onChange={(e: SelectChangeEvent) => onUpdateSettings('lnSecondaryFontFamily', e.target.value)}
+                onChange={(e: SelectChangeEvent) => onUpdateSettings('novelsSecondaryFontFamily', e.target.value)}
                 sx={selectStyles}
                 MenuProps={menuProps}
             >
@@ -553,11 +553,11 @@ export const ReaderControls: React.FC<Props> = ({
                             />
                         </Box>
                         <Slider
-                            value={settings.lnFontSize}
+                            value={settings.novelsFontSize}
                             min={12}
                             max={50}
                             step={1}
-                            onChange={(_, v) => onUpdateSettings('lnFontSize', v)}
+                            onChange={(_, v) => onUpdateSettings('novelsFontSize', v)}
                             sx={{ color: theme.fg }}
                         />
                     </Box>
@@ -577,11 +577,11 @@ export const ReaderControls: React.FC<Props> = ({
                             />
                         </Box>
                         <Slider
-                            value={settings.lnLineHeight}
+                            value={settings.novelsLineHeight}
                             min={1.2}
                             max={2.5}
                             step={0.1}
-                            onChange={(_, v) => onUpdateSettings('lnLineHeight', v)}
+                            onChange={(_, v) => onUpdateSettings('novelsLineHeight', v)}
                             sx={{ color: theme.fg }}
                         />
                     </Box>
@@ -604,11 +604,11 @@ export const ReaderControls: React.FC<Props> = ({
                             />
                         </Box>
                         <Slider
-                            value={settings.lnLetterSpacing}
+                            value={settings.novelsLetterSpacing}
                             min={-2}
                             max={5}
                             step={0.5}
-                            onChange={(_, v) => onUpdateSettings('lnLetterSpacing', v)}
+                            onChange={(_, v) => onUpdateSettings('novelsLetterSpacing', v)}
                             sx={{ color: theme.fg }}
                         />
                     </Box>
@@ -619,9 +619,9 @@ export const ReaderControls: React.FC<Props> = ({
                             Text Alignment
                         </Typography>
                         <ToggleButtonGroup
-                            value={settings.lnTextAlign}
+                            value={settings.novelsTextAlign}
                             exclusive
-                            onChange={(_, v) => v && onUpdateSettings('lnTextAlign', v)}
+                            onChange={(_, v) => v && onUpdateSettings('novelsTextAlign', v)}
                             size="small"
                             fullWidth
                             sx={{
@@ -653,9 +653,9 @@ export const ReaderControls: React.FC<Props> = ({
                             Text Direction
                         </InputLabel>
                         <Select
-                            value={settings.lnReadingDirection}
+                            value={settings.novelsReadingDirection}
                             label="Text Direction"
-                            onChange={(e: SelectChangeEvent) => onUpdateSettings('lnReadingDirection', e.target.value)}
+                            onChange={(e: SelectChangeEvent) => onUpdateSettings('novelsReadingDirection', e.target.value)}
                             sx={selectStyles}
                             MenuProps={menuProps}
                         >
@@ -670,9 +670,9 @@ export const ReaderControls: React.FC<Props> = ({
                             Pagination
                         </InputLabel>
                         <Select
-                            value={settings.lnPaginationMode}
+                            value={settings.novelsPaginationMode}
                             label="Pagination"
-                            onChange={(e: SelectChangeEvent) => onUpdateSettings('lnPaginationMode', e.target.value)}
+                            onChange={(e: SelectChangeEvent) => onUpdateSettings('novelsPaginationMode', e.target.value)}
                             sx={selectStyles}
                             MenuProps={menuProps}
                         >
@@ -687,11 +687,11 @@ export const ReaderControls: React.FC<Props> = ({
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>Page Margin</Typography>
                             <TextField
                                 size="small"
-                                value={settings.lnPageMargin ?? 40}
+                                value={settings.novelsPageMargin ?? 40}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     if (!isNaN(val) && val >= 0 && val <= 80) {
-                                        onUpdateSettings('lnPageMargin', val);
+                                        onUpdateSettings('novelsPageMargin', val);
                                     }
                                 }}
                                 type="number"
@@ -703,11 +703,11 @@ export const ReaderControls: React.FC<Props> = ({
                             />
                         </Box>
                         <Slider
-                            value={settings.lnPageMargin ?? 40}
+                            value={settings.novelsPageMargin ?? 40}
                             min={0}
                             max={80}
                             step={4}
-                            onChange={(_, v) => onUpdateSettings('lnPageMargin', v)}
+                            onChange={(_, v) => onUpdateSettings('novelsPageMargin', v)}
                             sx={{ color: theme.fg }}
                         />
                     </Box>
@@ -724,8 +724,8 @@ export const ReaderControls: React.FC<Props> = ({
     <FormControlLabel
         control={
             <Switch
-                checked={settings.lnAutoBookmark ?? true}
-                onChange={(e) => onUpdateSettings('lnAutoBookmark', e.target.checked)}
+                checked={settings.novelsAutoBookmark ?? true}
+                onChange={(e) => onUpdateSettings('novelsAutoBookmark', e.target.checked)}
                 sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
@@ -743,7 +743,7 @@ export const ReaderControls: React.FC<Props> = ({
         sx={{ mb: 2, width: '100%' }}
     />
 
-    {(settings.lnAutoBookmark ?? true) && (
+    {(settings.novelsAutoBookmark ?? true) && (
         <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                 <Typography variant="caption" sx={{ opacity: 0.8 }}>
@@ -751,11 +751,11 @@ export const ReaderControls: React.FC<Props> = ({
                 </Typography>
                 <TextField
                     size="small"
-                    value={settings.lnBookmarkDelay ?? 5}
+                    value={settings.novelsBookmarkDelay ?? 5}
                     onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
                         if (!isNaN(val) && val >= 0 && val <= 60) {
-                            onUpdateSettings('lnBookmarkDelay', val);
+                            onUpdateSettings('novelsBookmarkDelay', val);
                         }
                     }}
                     type="number"
@@ -767,7 +767,7 @@ export const ReaderControls: React.FC<Props> = ({
                 />
             </Box>
             <Slider
-                value={settings.lnBookmarkDelay ?? 5}
+                value={settings.novelsBookmarkDelay ?? 5}
                 min={0}
                 max={60}
                 step={1}
@@ -778,16 +778,16 @@ export const ReaderControls: React.FC<Props> = ({
                     { value: 30, label: '30s' },
                     { value: 60, label: '1m' },
                 ]}
-                onChange={(_, v) => onUpdateSettings('lnBookmarkDelay', v as number)}
+                onChange={(_, v) => onUpdateSettings('novelsBookmarkDelay', v as number)}
                 sx={{ 
                     color: theme.fg,
                     '& .MuiSlider-markLabel': { color: theme.fg, fontSize: '0.7rem' }
                 }}
             />
             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
-                {(settings.lnBookmarkDelay ?? 5) === 0 
+                {(settings.novelsBookmarkDelay ?? 5) === 0
                     ? 'Auto-bookmarking disabled (use manual bookmark only)' 
-                    : `Auto-bookmark after staying on a page for ${settings.lnBookmarkDelay ?? 5} seconds`}
+                    : `Auto-bookmark after staying on a page for ${settings.novelsBookmarkDelay ?? 5} seconds`}
             </Typography>
         </Box>
     )}
@@ -804,8 +804,8 @@ export const ReaderControls: React.FC<Props> = ({
     <FormControlLabel
         control={
             <Switch
-                checked={!(settings.lnHideNavButtons ?? false)}
-                onChange={(e) => onUpdateSettings('lnHideNavButtons', !e.target.checked)}
+                checked={!(settings.novelsHideNavButtons ?? false)}
+                onChange={(e) => onUpdateSettings('novelsHideNavButtons', !e.target.checked)}
                 sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
@@ -827,8 +827,8 @@ export const ReaderControls: React.FC<Props> = ({
     <FormControlLabel
         control={
             <Switch
-                checked={settings.lnEnableSwipe ?? true}
-                onChange={(e) => onUpdateSettings('lnEnableSwipe', e.target.checked)}
+                checked={settings.novelsEnableSwipe ?? true}
+                onChange={(e) => onUpdateSettings('novelsEnableSwipe', e.target.checked)}
                 sx={{
                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
@@ -849,14 +849,14 @@ export const ReaderControls: React.FC<Props> = ({
     {/* Drag Threshold */}
     <Box sx={{ mb: 3, width: '100%' }}>
         <Typography variant="body2" sx={{ mb: 1 }}>
-            Drag Threshold: {settings.lnDragThreshold ?? 10}px
+            Drag Threshold: {settings.novelsDragThreshold ?? 10}px
         </Typography>
         <Slider
-            value={settings.lnDragThreshold ?? 10}
+            value={settings.novelsDragThreshold ?? 10}
             min={1}
             max={50}
             step={1}
-            onChange={(_, v) => onUpdateSettings('lnDragThreshold', v as number)}
+            onChange={(_, v) => onUpdateSettings('novelsDragThreshold', v as number)}
             sx={{ color: theme.fg }}
         />
         <Typography variant="caption" sx={{ opacity: 0.6 }}>
@@ -865,13 +865,13 @@ export const ReaderControls: React.FC<Props> = ({
     </Box>
 
     {/* Click Zones - Only show in paginated mode */}
-    {settings.lnPaginationMode === 'paginated' && (
+    {settings.novelsPaginationMode === 'paginated' && (
         <>
             <FormControlLabel
                 control={
                     <Switch
-                        checked={settings.lnEnableClickZones ?? true}
-                        onChange={(e) => onUpdateSettings('lnEnableClickZones', e.target.checked)}
+                        checked={settings.novelsEnableClickZones ?? true}
+                        onChange={(e) => onUpdateSettings('novelsEnableClickZones', e.target.checked)}
                         sx={{
                             '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
                             '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
@@ -889,7 +889,7 @@ export const ReaderControls: React.FC<Props> = ({
                 sx={{ mb: 2, width: '100%' }}
             />
 
-            {(settings.lnEnableClickZones ?? true) && (
+            {(settings.novelsEnableClickZones ?? true) && (
                 <>
                     {/* Zone Size */}
                     <Box sx={{ mb: 2 }}>
@@ -897,11 +897,11 @@ export const ReaderControls: React.FC<Props> = ({
                             <Typography variant="caption" sx={{ opacity: 0.8 }}>Zone Size</Typography>
                             <TextField
                                 size="small"
-                                value={settings.lnClickZoneSize ?? 10}
+                                value={settings.novelsClickZoneSize ?? 10}
                                 onChange={(e) => {
                                     const val = parseInt(e.target.value, 10);
                                     if (!isNaN(val) && val >= 0 && val <= 50) {
-                                        onUpdateSettings('lnClickZoneSize', val);
+                                        onUpdateSettings('novelsClickZoneSize', val);
                                     }
                                 }}
                                 type="number"
@@ -913,11 +913,11 @@ export const ReaderControls: React.FC<Props> = ({
                             />
                         </Box>
                         <Slider
-                            value={settings.lnClickZoneSize ?? 10}
+                            value={settings.novelsClickZoneSize ?? 10}
                             min={0}
                             max={50}
                             step={5}
-                            onChange={(_, v) => onUpdateSettings('lnClickZoneSize', v as number)}
+                            onChange={(_, v) => onUpdateSettings('novelsClickZoneSize', v as number)}
                             sx={{ color: theme.fg }}
                         />
                     </Box>
@@ -928,9 +928,9 @@ export const ReaderControls: React.FC<Props> = ({
                             Zone Placement
                         </InputLabel>
                         <Select
-                            value={settings.lnClickZonePlacement ?? 'vertical'}
+                            value={settings.novelsClickZonePlacement ?? 'vertical'}
                             label="Zone Placement"
-                            onChange={(e) => onUpdateSettings('lnClickZonePlacement', e.target.value)}
+                            onChange={(e) => onUpdateSettings('novelsClickZonePlacement', e.target.value)}
                             sx={selectStyles}
                             MenuProps={menuProps}
                         >
@@ -945,9 +945,9 @@ export const ReaderControls: React.FC<Props> = ({
                             Zone Position
                         </InputLabel>
                         <Select
-                            value={settings.lnClickZonePosition ?? 'full'}
+                            value={settings.novelsClickZonePosition ?? 'full'}
                             label="Zone Position"
-                            onChange={(e) => onUpdateSettings('lnClickZonePosition', e.target.value)}
+                            onChange={(e) => onUpdateSettings('novelsClickZonePosition', e.target.value)}
                             sx={selectStyles}
                             MenuProps={menuProps}
                         >
@@ -959,17 +959,17 @@ export const ReaderControls: React.FC<Props> = ({
                     </FormControl>
 
                     {/* Zone Coverage (only if not full) */}
-                    {(settings.lnClickZonePosition ?? 'full') !== 'full' && (
+                    {(settings.novelsClickZonePosition ?? 'full') !== 'full' && (
                         <Box sx={{ mb: 2 }}>
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                                 <Typography variant="caption" sx={{ opacity: 0.8 }}>Zone Coverage</Typography>
                                 <TextField
                                     size="small"
-                                    value={settings.lnClickZoneCoverage ?? 60}
+                                    value={settings.novelsClickZoneCoverage ?? 60}
                                     onChange={(e) => {
                                         const val = parseInt(e.target.value, 10);
                                         if (!isNaN(val) && val >= 30 && val <= 100) {
-                                            onUpdateSettings('lnClickZoneCoverage', val);
+                                            onUpdateSettings('novelsClickZoneCoverage', val);
                                         }
                                     }}
                                     type="number"
@@ -981,11 +981,11 @@ export const ReaderControls: React.FC<Props> = ({
                                 />
                             </Box>
                             <Slider
-                                value={settings.lnClickZoneCoverage ?? 60}
+                                value={settings.novelsClickZoneCoverage ?? 60}
                                 min={30}
                                 max={100}
                                 step={10}
-                                onChange={(_, v) => onUpdateSettings('lnClickZoneCoverage', v as number)}
+                                onChange={(_, v) => onUpdateSettings('novelsClickZoneCoverage', v as number)}
                                 sx={{ color: theme.fg }}
                             />
                             <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.7 }}>
@@ -1008,8 +1008,8 @@ export const ReaderControls: React.FC<Props> = ({
                     <FormControlLabel
                         control={
                             <Switch
-                                checked={!!settings.lnDisableAnimations}
-                                onChange={(e) => onUpdateSettings('lnDisableAnimations', e.target.checked)}
+                                checked={!!settings.novelsDisableAnimations}
+                                onChange={(e) => onUpdateSettings('novelsDisableAnimations', e.target.checked)}
                                 sx={{
                                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
                                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
@@ -1029,8 +1029,8 @@ export const ReaderControls: React.FC<Props> = ({
                     <FormControlLabel
                         control={
                             <Switch
-                                checked={settings.lnEnableFurigana}
-                                onChange={(e) => onUpdateSettings('lnEnableFurigana', e.target.checked)}
+                                checked={settings.novelsEnableFurigana}
+                                onChange={(e) => onUpdateSettings('novelsEnableFurigana', e.target.checked)}
                                 sx={{
                                     '& .MuiSwitch-switchBase.Mui-checked': { color: theme.fg },
                                     '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': { backgroundColor: theme.fg },
@@ -1051,8 +1051,8 @@ export const ReaderControls: React.FC<Props> = ({
                         <FormControlLabel
                             control={
                                 <Switch
-                                    checked={settings.lnShowCharProgress ?? false}
-                                    onChange={(e) => onUpdateSettings('lnShowCharProgress', e.target.checked)}
+                                    checked={settings.novelsShowCharProgress ?? false}
+                                    onChange={(e) => onUpdateSettings('novelsShowCharProgress', e.target.checked)}
                                 />
                             }
                             label="Show Character Progress"

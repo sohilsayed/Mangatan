@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use tracing::debug;
 
-use crate::types::{ConflictInfo, LNMetadata, LNProgress, LnCategory, SyncPayload};
+use crate::types::{ConflictInfo, NovelsMetadata, NovelsProgress, NovelsCategory, SyncPayload};
 
 /// Merge two sync payloads, returning the merged result
 pub fn merge_payloads(
@@ -14,41 +14,41 @@ pub fn merge_payloads(
 
     // Merge progress
     let (merged_progress, progress_conflicts) =
-        merge_progress_maps(local.ln_progress, remote.ln_progress, local_device_id);
+        merge_progress_maps(local.novels_progress, remote.novels_progress, local_device_id);
     conflicts.extend(progress_conflicts);
 
     // Merge metadata
     let (merged_metadata, metadata_conflicts) =
-        merge_metadata_maps(local.ln_metadata, remote.ln_metadata);
+        merge_metadata_maps(local.novels_metadata, remote.novels_metadata);
     conflicts.extend(metadata_conflicts);
 
     // Merge content (simple: prefer local if exists, else remote)
-    let merged_content = merge_simple_maps(local.ln_content, remote.ln_content);
+    let merged_content = merge_simple_maps(local.novels_content, remote.novels_content);
 
     // Merge files (simple: prefer local if exists, else remote)
-    let merged_files = merge_simple_maps(local.ln_files, remote.ln_files);
+    let merged_files = merge_simple_maps(local.novels_files, remote.novels_files);
 
     // Merge file manifest
     let merged_manifest = merge_simple_maps(local.file_manifest, remote.file_manifest);
 
     // Merge categories (simple merge - both sides preserved)
-    let merged_categories = merge_categories(local.ln_categories, remote.ln_categories);
+    let merged_categories = merge_categories(local.novels_categories, remote.novels_categories);
 
     // Merge category metadata (simple: prefer remote)
     let merged_category_metadata =
-        merge_simple_maps(local.ln_category_metadata, remote.ln_category_metadata);
+        merge_simple_maps(local.novels_category_metadata, remote.novels_category_metadata);
 
     let merged = SyncPayload {
         schema_version: SyncPayload::CURRENT_SCHEMA_VERSION,
         device_id: local_device_id.to_string(),
         last_modified: chrono::Utc::now().timestamp_millis(),
-        ln_progress: merged_progress,
-        ln_metadata: merged_metadata,
-        ln_content: merged_content,
-        ln_files: merged_files,
+        novels_progress: merged_progress,
+        novels_metadata: merged_metadata,
+        novels_content: merged_content,
+        novels_files: merged_files,
         file_manifest: merged_manifest,
-        ln_categories: merged_categories,
-        ln_category_metadata: merged_category_metadata,
+        novels_categories: merged_categories,
+        novels_category_metadata: merged_category_metadata,
     };
 
     (merged, conflicts)
@@ -56,9 +56,9 @@ pub fn merge_payloads(
 
 /// Merge categories - keep all categories from both sides
 fn merge_categories(
-    local: HashMap<String, LnCategory>,
-    remote: HashMap<String, LnCategory>,
-) -> HashMap<String, LnCategory> {
+    local: HashMap<String, NovelsCategory>,
+    remote: HashMap<String, NovelsCategory>,
+) -> HashMap<String, NovelsCategory> {
     let mut merged = remote;
 
     for (id, category) in local {
@@ -79,10 +79,10 @@ fn merge_categories(
 }
 
 fn merge_progress_maps(
-    local: HashMap<String, LNProgress>,
-    remote: HashMap<String, LNProgress>,
+    local: HashMap<String, NovelsProgress>,
+    remote: HashMap<String, NovelsProgress>,
     local_device_id: &str,
-) -> (HashMap<String, LNProgress>, Vec<ConflictInfo>) {
+) -> (HashMap<String, NovelsProgress>, Vec<ConflictInfo>) {
     let mut merged = HashMap::new();
     let mut conflicts = Vec::new();
 
@@ -171,9 +171,9 @@ fn merge_progress_maps(
 }
 
 fn merge_metadata_maps(
-    local: HashMap<String, LNMetadata>,
-    remote: HashMap<String, LNMetadata>,
-) -> (HashMap<String, LNMetadata>, Vec<ConflictInfo>) {
+    local: HashMap<String, NovelsMetadata>,
+    remote: HashMap<String, NovelsMetadata>,
+) -> (HashMap<String, NovelsMetadata>, Vec<ConflictInfo>) {
     let mut merged = HashMap::new();
     let conflicts = Vec::new();
 

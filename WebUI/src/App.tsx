@@ -110,8 +110,8 @@ const { GlobalReaderSettings } = loadable(
 const { More } = loadable(() => import('@/features/settings/screens/More.tsx'), lazyLoadFallback);
 const { Reader } = loadable(() => import('@/features/reader/screens/Reader.tsx'), lazyLoadFallback);
 const { HistorySettings } = loadable(() => import('@/features/history/screens/HistorySettings.tsx'), lazyLoadFallback);
-const { LNLibrary } = loadable(() => import('@/features/ln/screens/LNLibrary.tsx'), lazyLoadFallback);
-const { LNReaderScreen } = loadable(() => import('@/features/ln/reader/screens/LNReaderScreen.tsx'), lazyLoadFallback);
+const { NovelsLibrary } = loadable(() => import('@/features/novels/screens/NovelsLibrary.tsx'), lazyLoadFallback);
+const { NovelsReaderScreen } = loadable(() => import('@/features/novels/reader/screens/NovelsReaderScreen.tsx'), lazyLoadFallback);
 const { Dictionary } = loadable(() => import('@/features/dictionary/Dictionary.tsx'), lazyLoadFallback);
 const { SyncSettings } = loadable(() => import('@/features/sync/screens/SyncSettings.tsx'), lazyLoadFallback);
 
@@ -140,9 +140,9 @@ const InitialBackgroundRequests = () => {
         // without having to open the extensions page.
         fetchExtensionList().catch(defaultPromiseErrorHandler('App::InitialBackgroundRequests: extension list'));
 
-        // Trigger LN migration from IndexedDB to server
+        // Trigger Novels migration from IndexedDB to server
         import('@/lib/storage/AppStorage').then(({ AppStorage }) => {
-            AppStorage.migrateLnMetadata().catch(err => console.error('[App] LN migration failed:', err));
+            AppStorage.migrateNovelsMetadata().catch(err => console.error('[App] Novels migration failed:', err));
         });
     }, []);
 
@@ -351,8 +351,8 @@ const MainApp = () => {
                             <Route index element={<Migrate />} />
                             <Route path={AppRoutes.migrate.childRoutes.search.match} element={<SearchAll />} />
                         </Route>
-                        {/* LN Library Route */}
-                        <Route path={AppRoutes.ln.match} element={<LNLibrary />} />
+                        {/* Novels Library Route */}
+                        <Route path={AppRoutes.novels.match} element={<NovelsLibrary />} />
                         <Route path={AppRoutes.tracker.match} element={<TrackerOAuthLogin />} />
                     </Route>
                 </Routes>
@@ -380,11 +380,11 @@ const ReaderLayout = () => (
     </Box>
 );
 
-const LNReaderApp = () => (
+const NovelsReaderApp = () => (
     <ErrorBoundary>
         <Routes>
             <Route element={<PrivateRoutes />}>
-                <Route path="*" element={<LNReaderScreen />} />
+                <Route path="*" element={<NovelsReaderScreen />} />
             </Route>
         </Routes>
     </ErrorBoundary>
@@ -409,8 +409,8 @@ export const App: React.FC = () => (
                     <Routes>
                         {/* Fullscreen Reader Routes */}
                         <Route
-                            path={`${AppRoutes.ln.match}/${AppRoutes.ln.childRoutes.reader.match}/*`}
-                            element={<LNReaderApp />}
+                            path={`${AppRoutes.novels.match}/${AppRoutes.novels.childRoutes.reader.match}/*`}
+                            element={<NovelsReaderApp />}
                         />
                         <Route path={AppRoutes.reader.match} element={<ReaderLayout />} />
 

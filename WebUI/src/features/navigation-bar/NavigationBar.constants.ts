@@ -51,7 +51,7 @@ const NAVIGATION_BAR_BASE_ITEMS = [
         moreGroup: NavBarItemMoreGroup.GENERAL,
     },
     {
-        path: AppRoutes.ln.path as RestrictedNavBarItem<'both'>['path'],
+        path: AppRoutes.novels.path as RestrictedNavBarItem<'both'>['path'],
         title: 'Novels',
         SelectedIconComponent: AutoStoriesIcon,
         IconComponent: AutoStoriesIcon,
