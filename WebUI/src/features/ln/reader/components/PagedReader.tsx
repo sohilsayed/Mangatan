@@ -96,6 +96,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const wrapperRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const measureRef = useRef<HTMLDivElement>(null);
     const wheelTimeoutRef = useRef<number | null>(null);
     const navigationIntentRef = useRef<{ goToLastPage: boolean } | null>(null);
     const positionDetectTimerRef = useRef<number | null>(null);
@@ -207,10 +208,26 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
     const [currentSection, setCurrentSection] = useState(initialChapter);
     const [currentPage, setCurrentPage] = useState(initialPage);
-    const [totalPages, setTotalPages] = useState(1);
+
+    // Computed pages and visibility range
+    const [computedPages, setComputedPages] = useState<{
+        totalPages: number;
+        pageSize: number;
+    }>({ totalPages: 1, pageSize: 0 });
+
+    const [visiblePageRange, setVisiblePageRange] = useState({ start: 0, end: 0 });
+
+    // Update visible range when page changes
+    useEffect(() => {
+        const halfWindow = 2;
+        setVisiblePageRange({
+            start: Math.max(0, currentPage - halfWindow),
+            end: Math.min(computedPages.totalPages - 1, currentPage + halfWindow)
+        });
+    }, [currentPage, computedPages.totalPages]);
+
     const [contentReady, setContentReady] = useState(false);
     const [isTransitioning, setIsTransitioning] = useState(false);
-    const [measuredPageSize, setMeasuredPageSize] = useState<number>(0);
     const [currentProgress, setCurrentProgress] = useState(initialProgress?.totalProgress || 0);
     const [currentPosition, setCurrentPosition] = useState<SaveablePosition | null>(null);
 
@@ -304,65 +321,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         [settings, isVertical]
     );
 
-    // Memoized transform - only recalculate when page actually changes
-    const transform = useMemo(() => {
-        const effectivePageSize = measuredPageSize > 0
-            ? measuredPageSize
-            : (layout?.columnWidth || 0) + (layout?.gap || 80);
-        const pageOffset = Math.round(currentPage * effectivePageSize);
-        return isVertical
-            ? `translateY(-${pageOffset}px)`
-            : `translateX(-${pageOffset}px)`;
-    }, [currentPage, measuredPageSize, layout?.columnWidth, layout?.gap, isVertical]);
-
-    // Memoized content style to prevent re-renders on UI toggle
-    const contentStyle = useMemo(() => {
-        if (!layout) return {};
-        
-        // Calculate text color with brightness
-        const brightness = settings.lnTextBrightness ?? 100;
-        const textColor = brightness === 100 
-            ? theme.fg 
-            : adjustBrightness(theme.fg, brightness);
-        
-        return {
-            ...typographyStyles,
-            color: textColor,
-            columnWidth: `${layout.columnWidth}px`,
-            columnGap: `${layout.gap}px`,
-            columnFill: 'auto',
-            boxSizing: 'border-box',
-            overflowWrap: 'break-word',
-            wordBreak: 'break-word',
-            transform: transform,
-            transition: settings.lnDisableAnimations
-                ? 'none'
-                : 'transform 0.3s ease-out',
-            willChange: 'transform',
-            ...(isVertical
-                ? {
-                    writingMode: 'vertical-rl',
-                    textOrientation: 'mixed',
-                    width: `${layout.contentW}px`,
-                    height: 'auto',
-                    minHeight: `${layout.contentH}px`,
-                }
-                : {
-                    height: `${layout.contentH}px`,
-                    width: 'auto',
-                    minWidth: `${layout.contentW}px`,
-                }
-            ),
-        };
-    }, [
-        typographyStyles,
-        layout,
-        transform,
-        settings.lnDisableAnimations,
-        settings.lnTextBrightness,
-        theme.fg,
-        isVertical
-    ]);
 
     // ========================================================================
     // Register Save Function with Parent
@@ -418,14 +376,14 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     // ========================================================================
 
     useLayoutEffect(() => {
-        if (!contentRef.current || !layout) return;
+        if (!measureRef.current || !layout) return;
 
         let cancelled = false;
 
         const calculatePages = async () => {
             setContentReady(false);
 
-            const content = contentRef.current;
+            const content = measureRef.current;
             if (!content || cancelled) return;
 
             // Wait for fonts
@@ -460,7 +418,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
             if (cancelled) return;
 
-            const currentContent = contentRef.current;
+            const currentContent = measureRef.current;
             if (!currentContent) return;
 
             // Force reflow
@@ -471,30 +429,30 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             const computedStyle = window.getComputedStyle(currentContent);
             const actualColumnWidth = parseFloat(computedStyle.columnWidth) || layout.columnWidth;
             const actualGap = parseFloat(computedStyle.columnGap) || layout.gap;
-            const actualPageSize = actualColumnWidth + actualGap;
-
-            setMeasuredPageSize(actualPageSize);
+            const pageSize = actualColumnWidth + actualGap;
 
             // Calculate total pages
+            // For vertical text (vertical-rl), pages are laid out horizontally, so we measure scrollWidth.
+            // For horizontal text, pages are laid out vertically, so we measure scrollHeight.
             const scrollSize = isVertical
-                ? currentContent.scrollHeight
-                : currentContent.scrollWidth;
+                ? currentContent.scrollWidth
+                : currentContent.scrollHeight;
 
-            let calculatedPages = 1;
+            let totalPages = 1;
             if (scrollSize > actualColumnWidth) {
-                calculatedPages = Math.max(1, Math.ceil((scrollSize - 1) / actualPageSize));
+                totalPages = Math.max(1, Math.ceil((scrollSize - 1) / pageSize));
             }
 
-            setTotalPages(calculatedPages);
+            setComputedPages({ totalPages, pageSize });
 
             // Handle navigation intent
             const intent = navigationIntentRef.current;
             navigationIntentRef.current = null;
 
             if (intent?.goToLastPage) {
-                setCurrentPage(calculatedPages - 1);
+                setCurrentPage(totalPages - 1);
             } else {
-                setCurrentPage(p => Math.min(p, calculatedPages - 1));
+                setCurrentPage(p => Math.min(p, totalPages - 1));
             }
 
             requestAnimationFrame(() => {
@@ -527,9 +485,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
         if (!contentReady || !viewportRef.current || !stats) return;
 
-        const pageSize = measuredPageSize > 0
-            ? measuredPageSize
-            : (layout?.columnWidth || 0) + (layout?.gap || 80);
+        const pageSize = computedPages.pageSize || (layout?.columnWidth || 0) + (layout?.gap || 80);
 
         if (pageSize <= 0) return;
 
@@ -599,7 +555,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             blockId: detected.blockId,
         });
 
-    }, [contentReady, stats, measuredPageSize, layout, currentPage, currentSection, isVertical]);
+    }, [contentReady, stats, computedPages.pageSize, layout, currentPage, currentSection, isVertical]);
 
     // Detect position after page/chapter changes
     useEffect(() => {
@@ -629,11 +585,11 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     useEffect(() => {
         if (!contentReady) return;
         if (!contentRef.current) return;
-        if (measuredPageSize <= 0) return;
+        if (computedPages.pageSize <= 0) return;
 
         // Create a unique key for this layout state
         // Restores happen exactly once when this key changes
-        const restoreKey = `${currentSection}|${layoutKey}|${measuredPageSize}|${totalPages}`;
+        const restoreKey = `${currentSection}|${layoutKey}|${computedPages.pageSize}|${computedPages.totalPages}`;
 
         if (restoreKey === lastRestoreKeyRef.current) return;
 
@@ -703,8 +659,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 ? (blockRect.top - contentRect.top)
                 : (blockRect.left - contentRect.left);
 
-            const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
-            const clamped = Math.max(0, Math.min(targetPage, totalPages - 1));
+            const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
+            const clamped = Math.max(0, Math.min(targetPage, computedPages.totalPages - 1));
 
             // Mark as restored for this layout
             lastRestoreKeyRef.current = restoreKey;
@@ -729,7 +685,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         };
 
         tryRestore();
-    }, [contentReady, measuredPageSize, totalPages, currentSection, isVertical, layoutKey, stats?.blockMaps]);
+    }, [contentReady, computedPages.pageSize, computedPages.totalPages, currentSection, isVertical, layoutKey, stats?.blockMaps]);
 
     // ========================================================================
     // Touch/Click Handlers
@@ -740,11 +696,11 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     // ========================================================================
 
     const goToPage = useCallback((page: number) => {
-        const clamped = Math.max(0, Math.min(page, totalPages - 1));
+        const clamped = Math.max(0, Math.min(page, computedPages.totalPages - 1));
         if (clamped !== currentPage) {
             setCurrentPage(clamped);
         }
-    }, [totalPages, currentPage]);
+    }, [computedPages.totalPages, currentPage]);
 
     const goToSection = useCallback((section: number, goToLastPage = false) => {
         const clamped = Math.max(0, Math.min(section, chapters.length - 1));
@@ -765,12 +721,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const goNext = useCallback(() => {
         if (!contentReady || isTransitioning) return;
 
-        if (currentPage < totalPages - 1) {
+        if (currentPage < computedPages.totalPages - 1) {
             goToPage(currentPage + 1);
         } else if (currentSection < chapters.length - 1) {
             goToSection(currentSection + 1, false);
         }
-    }, [currentPage, totalPages, currentSection, chapters.length, goToPage, goToSection, contentReady, isTransitioning]);
+    }, [currentPage, computedPages.totalPages, currentSection, chapters.length, goToPage, goToSection, contentReady, isTransitioning]);
 
     const goPrev = useCallback(() => {
         if (!contentReady || isTransitioning) return;
@@ -943,8 +899,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         goNext,
         goPrev,
         goToStart: () => goToPage(0),
-        goToEnd: () => goToPage(totalPages - 1),
-    }), [goNext, goPrev, goToPage, totalPages]);
+        goToEnd: () => goToPage(computedPages.totalPages - 1),
+    }), [goNext, goPrev, goToPage, computedPages.totalPages]);
 
     const handleSaveNow = useCallback(async (): Promise<boolean> => {
         return await saveSchedulerRef.current.saveNow();
@@ -1003,14 +959,14 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     // Same chapter, scroll to anchor
                     setTimeout(() => {
                         const element = document.getElementById(anchor);
-                        if (element && contentRef.current && measuredPageSize > 0) {
+                        if (element && contentRef.current && computedPages.pageSize > 0) {
                             const rect = element.getBoundingClientRect();
                             const contentRect = contentRef.current.getBoundingClientRect();
                             const offset = isVertical
                                 ? rect.top - contentRect.top
                                 : rect.left - contentRect.left;
-                            const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
-                            goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
+                            const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
+                            goToPage(Math.max(0, Math.min(targetPage, computedPages.totalPages - 1)));
                         }
                     }, 100);
                 } else {
@@ -1020,14 +976,14 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     if (anchor) {
                         setTimeout(() => {
                             const element = document.getElementById(anchor);
-                            if (element && contentRef.current && measuredPageSize > 0) {
+                        if (element && contentRef.current && computedPages.pageSize > 0) {
                                 const rect = element.getBoundingClientRect();
                                 const contentRect = contentRef.current.getBoundingClientRect();
                                 const offset = isVertical
                                     ? rect.top - contentRect.top
                                     : rect.left - contentRect.left;
-                                const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
-                                goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
+                            const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
+                            goToPage(Math.max(0, Math.min(targetPage, computedPages.totalPages - 1)));
                             }
                         }, 500);
                     }
@@ -1037,7 +993,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
         container.addEventListener('epub-link-clicked', handleEpubLink);
         return () => container.removeEventListener('epub-link-clicked', handleEpubLink);
-    }, [chapters.length, goToSection, chapterFilenames, currentSection, goToPage, isVertical, measuredPageSize, totalPages]);
+}, [chapters.length, goToSection, chapterFilenames, currentSection, goToPage, isVertical, computedPages.pageSize, computedPages.totalPages]);
 
     // ========================================================================
     // Wheel Handler
@@ -1132,12 +1088,10 @@ useEffect(() => {
     // ========================================================================
 
     // Calculate derived values for rendering
-    const effectivePageSize = measuredPageSize > 0
-        ? measuredPageSize
-        : (layout?.columnWidth || 0) + (layout?.gap || 80);
+    const pageSize = computedPages.pageSize || (layout?.columnWidth || 0) + (layout?.gap || 80);
 
-    const pageProgressPercent = totalPages > 0
-        ? ((currentPage + 1) / totalPages) * 100
+    const pageProgressPercent = computedPages.totalPages > 0
+        ? ((currentPage + 1) / computedPages.totalPages) * 100
         : 0;
 
     const handleUpdateSettings = onUpdateSettings ?? (() => {});
@@ -1149,11 +1103,48 @@ useEffect(() => {
 
     return (
         <div
-    ref={wrapperRef}
-    className="paged-reader-wrapper"
-    style={wrapperStyle}
-    data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
->
+            ref={wrapperRef}
+            className="paged-reader-wrapper"
+            style={wrapperStyle}
+            data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
+        >
+            {/* Measurement div (Hidden) */}
+            <div
+                ref={measureRef}
+                className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                style={{
+                    ...typographyStyles,
+                    color: theme.fg,
+                    columnWidth: `${layout.columnWidth}px`,
+                    columnGap: `${layout.gap}px`,
+                    columnFill: 'auto',
+                    boxSizing: 'border-box',
+                    overflowWrap: 'break-word',
+                    wordBreak: 'break-word',
+                    position: 'absolute',
+                    visibility: 'hidden',
+                    pointerEvents: 'none',
+                    zIndex: -1,
+                    transform: 'none',
+                    transition: 'none',
+                    ...(isVertical
+                        ? {
+                            writingMode: 'vertical-rl',
+                            textOrientation: 'mixed',
+                            width: 'auto',
+                            minWidth: `${layout.contentW}px`,
+                            height: `${layout.contentH}px`,
+                        }
+                        : {
+                            width: `${layout.contentW}px`,
+                            height: 'auto',
+                            minHeight: `${layout.contentH}px`,
+                        }
+                    ),
+                }}
+                dangerouslySetInnerHTML={{ __html: currentHtml }}
+            />
+
             {/* Dynamic image sizing */}
             <style>{`
                 .paged-content img {
@@ -1166,35 +1157,82 @@ useEffect(() => {
                 }
             `}</style>
 
-            {/* Viewport */}
-            <div
-                ref={viewportRef}
-                className="paged-viewport"
-                style={{
-                    position: 'absolute',
-                    inset: 0,
-                    overflow: 'hidden',
-                    clipPath: 'inset(0px)',
-                    paddingTop: `calc(${layout.padding}px + ${safeAreaTopInset ?? '0px'})`,
-                    paddingRight: `${layout.padding}px`,
-                    paddingBottom: `${layout.padding}px`,
-                    paddingLeft: `${layout.padding}px`,
-                }}
-                onClick={handleContentClick}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-            >
-                {/* Content */}
-                <div
-                    ref={contentRef}
-                    className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
-                    lang={isKorean ? "ko" : undefined}
-                    style={contentStyle}
-                    dangerouslySetInnerHTML={{ __html: currentHtml }}
-                />
-            </div>
+            {/* Multi-Viewport Reader */}
+            {Array.from({ length: visiblePageRange.end - visiblePageRange.start + 1 }).map((_, i) => {
+                const pageIndex = visiblePageRange.start + i;
+                const isCurrentPage = pageIndex === currentPage;
+                const offset = pageIndex * computedPages.pageSize;
+
+                // Paging direction based on text orientation
+                const contentTransform = isVertical
+                    ? `translateX(${-offset}px)`
+                    : `translateY(${-offset}px)`;
+
+                return (
+                    <div
+                        key={pageIndex}
+                        ref={isCurrentPage ? viewportRef : undefined}
+                        className="page-viewport"
+                        style={{
+                            position: 'absolute',
+                            inset: 0,
+                            paddingTop: `calc(${layout.padding}px + ${safeAreaTopInset ?? '0px'})`,
+                            paddingRight: `${layout.padding}px`,
+                            paddingBottom: `${layout.padding}px`,
+                            paddingLeft: `${layout.padding}px`,
+                            overflow: 'hidden',
+                            clipPath: 'inset(0px)',
+                            transform: `translateX(${(pageIndex - currentPage) * 100}%)`,
+                            transition: settings.lnDisableAnimations ? 'none' : 'transform 0.3s ease-out',
+                            zIndex: isCurrentPage ? 1 : 0,
+                            // Performance optimizations
+                            contain: 'strict',
+                            contentVisibility: isCurrentPage ? 'visible' : 'auto',
+                            pointerEvents: isCurrentPage ? 'auto' : 'none',
+                        }}
+                        onClick={isCurrentPage ? handleContentClick : undefined}
+                        onPointerDown={isCurrentPage ? handlePointerDown : undefined}
+                        onPointerMove={isCurrentPage ? handlePointerMove : undefined}
+                        onTouchStart={isCurrentPage ? handleTouchStart : undefined}
+                        onTouchEnd={isCurrentPage ? handleTouchEnd : undefined}
+                    >
+                        <div
+                            ref={isCurrentPage ? contentRef : undefined}
+                            className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                            lang={isKorean ? "ko" : undefined}
+                            style={{
+                                ...typographyStyles,
+                                color: (settings.lnTextBrightness ?? 100) === 100
+                                    ? theme.fg
+                                    : adjustBrightness(theme.fg, settings.lnTextBrightness ?? 100),
+                                columnWidth: `${layout.columnWidth}px`,
+                                columnGap: `${layout.gap}px`,
+                                columnFill: 'auto',
+                                boxSizing: 'border-box',
+                                overflowWrap: 'break-word',
+                                wordBreak: 'break-word',
+                                transform: contentTransform,
+                                willChange: 'transform',
+                                ...(isVertical
+                                    ? {
+                                        writingMode: 'vertical-rl',
+                                        textOrientation: 'mixed',
+                                        width: 'auto', // Changed to auto for horizontal paging
+                                        minWidth: `${layout.contentW}px`,
+                                        height: `${layout.contentH}px`,
+                                    }
+                                    : {
+                                        width: `${layout.contentW}px`,
+                                        height: 'auto', // Changed to auto for vertical paging
+                                        minHeight: `${layout.contentH}px`,
+                                    }
+                                ),
+                            }}
+                            dangerouslySetInnerHTML={{ __html: currentHtml }}
+                        />
+                    </div>
+                );
+            })}
 
             {/* Loading Overlay */}
             {(!contentReady || isTransitioning) && (
@@ -1221,7 +1259,7 @@ useEffect(() => {
             {contentReady && (
                 <ClickZones
                     isVertical={isVertical}
-                    canGoNext={currentPage < totalPages - 1 || currentSection < chapters.length - 1}
+                    canGoNext={currentPage < computedPages.totalPages - 1 || currentSection < chapters.length - 1}
                     canGoPrev={currentPage > 0 || currentSection > 0}
                     zoneSize={settings.lnClickZoneSize ?? 10}
                     zonePosition={settings.lnClickZonePosition ?? 'full'}
@@ -1237,15 +1275,15 @@ useEffect(() => {
                     visible={showNavigation}
                     onNext={goNext}
                     onPrev={goPrev}
-                    canGoNext={currentPage < totalPages - 1 || currentSection < chapters.length - 1}
+                    canGoNext={currentPage < computedPages.totalPages - 1 || currentSection < chapters.length - 1}
                     canGoPrev={currentPage > 0 || currentSection > 0}
                     currentPage={currentPage}
-                    totalPages={totalPages}
+                    totalPages={computedPages.totalPages}
                     currentChapter={currentSection}
                     totalChapters={chapters.length}
                     progress={pageProgressPercent}
                     totalBookProgress={currentProgress}
-                    showSlider={totalPages > 1}
+                    showSlider={computedPages.totalPages > 1}
                     onPageChange={goToPage}
                     theme={theme}
                     isVertical={isVertical}

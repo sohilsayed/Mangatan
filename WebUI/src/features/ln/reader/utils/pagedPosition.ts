@@ -63,15 +63,15 @@ export function detectVisibleBlockPaged(
         let viewportEnd: number;
 
         if (isVertical) {
-            // Vertical mode: transforms are translateY
-            blockPosition = rect.top - containerRect.top + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.height;
-        } else {
-            // Horizontal mode: transforms are translateX
+            // Vertical text (vertical-rl) now uses horizontal paging (translateX)
             blockPosition = rect.left - containerRect.left + scrollOffset;
             viewportStart = scrollOffset;
             viewportEnd = scrollOffset + containerRect.width;
+        } else {
+            // Horizontal text now uses vertical paging (translateY)
+            blockPosition = rect.top - containerRect.top + scrollOffset;
+            viewportStart = scrollOffset;
+            viewportEnd = scrollOffset + containerRect.height;
         }
 
         const blockSize = isVertical ? rect.height : rect.width;
@@ -110,15 +110,17 @@ export function detectVisibleBlockPaged(
         let readRatio: number;
 
         if (isVertical) {
-            const scrollTop = pageIndex * pageSize;
-            const blockTop = blockRect.top - containerRect.top + scrollTop;
-            const readAmount = scrollTop - blockTop;
-            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
-        } else {
+            // Vertical text (vertical-rl) uses horizontal offset for reading progress
             const scrollLeft = pageIndex * pageSize;
             const blockLeft = blockRect.left - containerRect.left + scrollLeft;
             const readAmount = scrollLeft - blockLeft;
             readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
+        } else {
+            // Horizontal text uses vertical offset for reading progress
+            const scrollTop = pageIndex * pageSize;
+            const blockTop = blockRect.top - containerRect.top + scrollTop;
+            const readAmount = scrollTop - blockTop;
+            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
         }
 
         blockLocalOffset = Math.floor(blockChars * readRatio);
@@ -170,9 +172,9 @@ export function findPageForBlock(
     let blockPosition: number;
 
     if (isVertical) {
-        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
-    } else {
         blockPosition = blockRect.left - containerRect.left + (container.scrollLeft || 0);
+    } else {
+        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
     }
 
     return Math.floor(blockPosition / pageSize);

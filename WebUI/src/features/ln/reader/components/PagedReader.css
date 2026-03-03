@@ -18,11 +18,15 @@
    VIEWPORT CONTAINER
    ===================================================== */
 
-.paged-viewport {
+.page-viewport {
     position: absolute;
     inset: 0;
     overflow: hidden;
     /* Viewport clips the content - no scrolling */
+
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
 }
 
 /* =====================================================
