@@ -63,8 +63,10 @@ export function detectVisibleBlockPaged(
         let viewportEnd: number;
 
         if (isVertical) {
-            // Vertical text (vertical-rl) now uses horizontal paging (translateX)
-            blockPosition = rect.left - containerRect.left + scrollOffset;
+            // Vertical text (vertical-rl): pages are laid out from right to left.
+            // Page 0 right edge is at content right edge.
+            // Page N horizontal offset = N * pageSize (measured from right to left).
+            blockPosition = containerRect.right - rect.right + scrollOffset;
             viewportStart = scrollOffset;
             viewportEnd = scrollOffset + containerRect.width;
         } else {
@@ -110,10 +112,10 @@ export function detectVisibleBlockPaged(
         let readRatio: number;
 
         if (isVertical) {
-            // Vertical text (vertical-rl) uses horizontal offset for reading progress
-            const scrollLeft = pageIndex * pageSize;
-            const blockLeft = blockRect.left - containerRect.left + scrollLeft;
-            const readAmount = scrollLeft - blockLeft;
+            // Vertical text (vertical-rl): reading progress is horizontal, right to left.
+            const scrollRight = pageIndex * pageSize;
+            const blockRight = containerRect.right - blockRect.right + scrollRight;
+            const readAmount = scrollRight - blockRight;
             readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
         } else {
             // Horizontal text uses vertical offset for reading progress
@@ -172,7 +174,8 @@ export function findPageForBlock(
     let blockPosition: number;
 
     if (isVertical) {
-        blockPosition = blockRect.left - containerRect.left + (container.scrollLeft || 0);
+        // Measured from right for vertical-rl
+        blockPosition = containerRect.right - blockRect.right + (container.scrollLeft || 0);
     } else {
         blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
     }

@@ -62,6 +62,7 @@ const SAVE_DEBOUNCE_MS = 3000;
 const POSITION_DETECT_DELAY_MS = 150;
 const SWIPE_MIN_DISTANCE = 50;
 const SWIPE_MAX_TIME = 500;
+const PAGE_GAP_PX = 40;
 
 // ============================================================================
 // Component
@@ -282,12 +283,15 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const layout = useMemo(() => {
         if (dimensions.width === 0 || dimensions.height === 0) return null;
 
-        const gap =160;
+        // Gap between columns in CSS multi-column
+        const gap = 160;
         const padding = settings.lnPageMargin || 24;
 
         const contentW = dimensions.width - (padding * 2);
         const contentH = dimensions.height - (padding * 2) - safeAreaTopOffsetPx;
 
+        // For vertical text (vertical-rl), column-width property sets the column HEIGHT.
+        // For horizontal text, it sets the column WIDTH.
         const columnWidth = isVertical ? contentH : contentW;
 
         return {
@@ -427,21 +431,21 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
             // Get actual values from browser
             const computedStyle = window.getComputedStyle(currentContent);
-            const actualColumnWidth = parseFloat(computedStyle.columnWidth) || layout.columnWidth;
             const actualGap = parseFloat(computedStyle.columnGap) || layout.gap;
-            const pageSize = actualColumnWidth + actualGap;
+
+            // For vertical text (vertical-rl), pages are laid out horizontally.
+            // Paging distance is the width of the viewport + gap.
+            // For horizontal text with vertical paging, distance is height + gap.
+            const pageSize = isVertical
+                ? (layout.contentW + actualGap)
+                : (layout.contentH + actualGap);
 
             // Calculate total pages
-            // For vertical text (vertical-rl), pages are laid out horizontally, so we measure scrollWidth.
-            // For horizontal text, pages are laid out vertically, so we measure scrollHeight.
             const scrollSize = isVertical
                 ? currentContent.scrollWidth
                 : currentContent.scrollHeight;
 
-            let totalPages = 1;
-            if (scrollSize > actualColumnWidth) {
-                totalPages = Math.max(1, Math.ceil((scrollSize - 1) / pageSize));
-            }
+            const totalPages = Math.max(1, Math.ceil((scrollSize - 1) / pageSize));
 
             setComputedPages({ totalPages, pageSize });
 
@@ -658,6 +662,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             const offset = isVertical
                 ? (blockRect.top - contentRect.top)
                 : (blockRect.left - contentRect.left);
+
+            // Calculate which page the block is on based on its offset from content start
+            // Note: blockRect and contentRect are from the measurement div which has no transform.
+            const offset = isVertical
+                ? (contentRect.right - blockRect.right) // horizontal offset for vertical-rl
+                : (blockRect.top - contentRect.top);    // vertical offset for horizontal text
 
             const targetPage = Math.floor(Math.abs(offset) / computedPages.pageSize);
             const clamped = Math.max(0, Math.min(targetPage, computedPages.totalPages - 1));
@@ -1164,9 +1174,15 @@ useEffect(() => {
                 const offset = pageIndex * computedPages.pageSize;
 
                 // Paging direction based on text orientation
+                // For vertical-rl, we shift content RIGHT to bring left columns into view
                 const contentTransform = isVertical
-                    ? `translateX(${-offset}px)`
+                    ? `translateX(${offset}px)`
                     : `translateY(${-offset}px)`;
+
+                // Slide factor for horizontal viewport movement
+                // LTR: Page 1 (0%), Page 2 (100%) -> Next is Right
+                // RTL: Page 1 (0%), Page 2 (-100%) -> Next is Left
+                const slideFactor = isVertical ? (currentPage - pageIndex) : (pageIndex - currentPage);
 
                 return (
                     <div
@@ -1182,13 +1198,16 @@ useEffect(() => {
                             paddingLeft: `${layout.padding}px`,
                             overflow: 'hidden',
                             clipPath: 'inset(0px)',
-                            transform: `translateX(${(pageIndex - currentPage) * 100}%)`,
-                            transition: settings.lnDisableAnimations ? 'none' : 'transform 0.3s ease-out',
+                            transform: `translateX(calc(${slideFactor * 100}% + ${slideFactor * PAGE_GAP_PX}px))`,
+                            transition: settings.lnDisableAnimations ? 'none' : 'transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
                             zIndex: isCurrentPage ? 1 : 0,
                             // Performance optimizations
                             contain: 'strict',
                             contentVisibility: isCurrentPage ? 'visible' : 'auto',
                             pointerEvents: isCurrentPage ? 'auto' : 'none',
+                            // Ensure vertical text starts on the right
+                            display: isVertical ? 'flex' : 'block',
+                            justifyContent: isVertical ? 'flex-end' : 'flex-start',
                         }}
                         onClick={isCurrentPage ? handleContentClick : undefined}
                         onPointerDown={isCurrentPage ? handlePointerDown : undefined}
