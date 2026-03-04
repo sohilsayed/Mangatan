@@ -10,91 +10,67 @@ export interface PaginationResult {
 }
 
 /**
- * Calculates pagination details by rendering content in a hidden measurement div.
+ * Calculates pagination details by performing an in-place measurement.
  *
- * @param contentHtml - The HTML content of the chapter
- * @param options - Layout options (width, height, styles, margins, etc.)
+ * @param content - The content element to measure
+ * @param options - Layout options
  */
 export async function calculatePagination(
-    contentHtml: string,
+    content: HTMLElement,
     options: {
         width: number;
         height: number;
         isVertical: boolean;
-        styles: React.CSSProperties;
         marginTop: number;
         marginBottom: number;
         marginLeft: number;
         marginRight: number;
     }
 ): Promise<PaginationResult> {
-    const { width, height, isVertical, styles, marginTop, marginBottom, marginLeft, marginRight } = options;
+    const { width, height, isVertical, marginTop, marginBottom, marginLeft, marginRight } = options;
 
-    // Create measurement container
-    const measureContainer = document.createElement('div');
-    measureContainer.className = 'measure-container';
-    measureContainer.style.position = 'fixed';
-    measureContainer.style.top = '-10000px';
-    measureContainer.style.left = '-10000px';
-    measureContainer.style.visibility = 'hidden';
-    measureContainer.style.pointerEvents = 'none';
-
-    // Set measurement area size (available space for text)
+    // Available space for text
     const availableW = width - marginLeft - marginRight;
     const availableH = height - marginTop - marginBottom;
 
-    // Measurement box
-    const measureBox = document.createElement('div');
-    measureBox.className = 'measure-box';
+    // Setup content for measurement
+    content.style.transform = 'none';
+    content.style.transition = 'none';
+    content.style.contain = 'none';
 
-    // Apply typography and layout styles
-    Object.assign(measureBox.style, styles);
-
-    // Crucially, we use the writing mode but NOT column-count
-    // We want to measure the natural flow size
-    measureBox.style.writingMode = isVertical ? 'vertical-rl' : 'horizontal-tb';
-    measureBox.style.width = isVertical ? 'auto' : `${availableW}px`;
-    measureBox.style.height = isVertical ? `${availableH}px` : 'auto';
-    measureBox.style.margin = '0';
-    measureBox.style.padding = '0';
-    measureBox.style.columnCount = 'auto'; // Ensure no columns
-    measureBox.style.columnWidth = 'auto';
-    measureBox.style.overflow = 'hidden';
-
-    measureBox.innerHTML = contentHtml;
-    measureContainer.appendChild(measureBox);
-    document.body.appendChild(measureContainer);
-
-    try {
-        // Wait for images to load within the measurement div
-        const images = measureBox.querySelectorAll('img');
-        const imagePromises = Array.from(images).map(img => {
-            if (img.complete) return Promise.resolve();
-            return new Promise<void>(resolve => {
-                img.onload = () => resolve();
-                img.onerror = () => resolve();
-                // Safety timeout
-                setTimeout(resolve, 500);
-            });
-        });
-        await Promise.all(imagePromises);
-
-        // Allow some time for layout to settle
-        await new Promise(resolve => requestAnimationFrame(resolve));
-
-        const scrollSize = isVertical ? measureBox.scrollWidth : measureBox.scrollHeight;
-        const pageSize = isVertical ? availableW : availableH;
-
-        // Calculate total pages
-        // We add a tiny epsilon to avoid off-by-one errors from subpixel rendering
-        const totalPages = Math.max(1, Math.ceil((scrollSize - 1) / pageSize));
-
-        return {
-            totalPages,
-            pageSize,
-            scrollSize
-        };
-    } finally {
-        document.body.removeChild(measureContainer);
+    if (isVertical) {
+        content.style.writingMode = 'vertical-rl';
+        content.style.width = 'max-content';
+        content.style.height = `${availableH}px`;
+    } else {
+        content.style.writingMode = 'horizontal-tb';
+        content.style.width = `${availableW}px`;
+        content.style.height = 'max-content';
     }
+
+    // Wait for fonts
+    if (document.fonts) await document.fonts.ready;
+
+    // Wait for images
+    const images = content.querySelectorAll('img');
+    await Promise.all(Array.from(images).map(img => {
+        if (img.complete) return Promise.resolve();
+        return new Promise<void>(resolve => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            setTimeout(resolve, 500);
+        });
+    }));
+
+    // Allow browser to layout
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    await new Promise(resolve => requestAnimationFrame(resolve));
+
+    const rect = content.getBoundingClientRect();
+    const scrollSize = isVertical ? rect.width : rect.height;
+    const pageSize = isVertical ? availableW : availableH;
+
+    const totalPages = Math.max(1, Math.ceil((scrollSize - 1) / pageSize));
+
+    return { totalPages, pageSize, scrollSize };
 }

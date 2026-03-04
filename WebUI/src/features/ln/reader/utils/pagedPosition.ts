@@ -3,7 +3,6 @@ import { BlockIndexMap } from '../types/block';
 import {
     getCleanTextContent,
     getCleanCharCount,
-    extractContextSnippet
 } from './blockPosition';
 import { createChapterBlockLookup, calculateCharOffsetFromBlock } from './blockMap';
 
@@ -23,14 +22,8 @@ export interface DetectedBlock {
 // ============================================================================
 
 /**
- * Find the block that's currently at the reading position for paged mode
- * 
- * @param container - The viewport container element
- * @param pageIndex - Current page index (0-based)
- * @param pageSize - Size of each page in pixels
- * @param isVertical - Whether reading direction is vertical
- * @param chapterIndex - Current chapter index (for block ID prefix)
- * @param blockMaps - Optional blockMaps for precise character offset calculation
+ * Find the block that's currently at the reading position for paged mode.
+ * Optimized for JS pagination where a single container is shifted.
  */
 export function detectVisibleBlockPaged(
     container: HTMLElement,
@@ -40,48 +33,36 @@ export function detectVisibleBlockPaged(
     chapterIndex: number,
     blockMaps?: BlockIndexMap[]
 ): DetectedBlock | null {
-    // Get all blocks
     const allBlocks = container.querySelectorAll('[data-block-id]');
-
-    if (allBlocks.length === 0) {
-        console.warn('[pagedPosition] No blocks found in container');
-        return null;
-    }
+    if (allBlocks.length === 0) return null;
 
     const containerRect = container.getBoundingClientRect();
-    const scrollOffset = pageIndex * pageSize;
+    const currentOffset = pageIndex * pageSize;
 
     let bestBlock: Element | null = null;
     let bestDistance = Infinity;
 
-    // Find block closest to the reading edge
     for (const block of allBlocks) {
         const rect = block.getBoundingClientRect();
-
-        let blockPosition: number;
-        let viewportStart: number;
-        let viewportEnd: number;
+        let blockNaturalStart: number;
 
         if (isVertical) {
-            // Natural position from right edge
-            blockPosition = containerRect.right - rect.right;
-            viewportStart = pageIndex * pageSize;
-            viewportEnd = viewportStart + pageSize;
+            // Both containerRect and rect are affected by the shift.
+            // Their relative distance is invariant.
+            blockNaturalStart = containerRect.right - rect.right;
         } else {
-            // Natural position from top edge
-            blockPosition = rect.top - containerRect.top;
-            viewportStart = pageIndex * pageSize;
-            viewportEnd = viewportStart + pageSize;
+            blockNaturalStart = rect.top - containerRect.top;
         }
 
-        const blockSize = isVertical ? rect.width : rect.height; // Logic fixed
-        const blockEnd = blockPosition + blockSize;
+        const blockSize = isVertical ? rect.width : rect.height;
+        const blockEnd = blockNaturalStart + blockSize;
+        const viewportStart = 0;
+        const viewportEnd = pageSize;
 
-        // Check if block is visible on current page
-        const isVisible = blockEnd > viewportStart && blockPosition < viewportEnd;
+        const isVisible = blockEnd > viewportStart && blockNaturalStart < viewportEnd;
 
         if (isVisible) {
-            const distance = Math.abs(blockPosition - viewportStart);
+            const distance = Math.abs(blockNaturalStart - viewportStart);
             if (distance < bestDistance) {
                 bestDistance = distance;
                 bestBlock = block;
@@ -89,67 +70,43 @@ export function detectVisibleBlockPaged(
         }
     }
 
-    // Fallback to first block if none found
-    if (!bestBlock) {
-        bestBlock = allBlocks[0];
-    }
+    if (!bestBlock) bestBlock = allBlocks[0];
 
     const blockId = bestBlock.getAttribute('data-block-id');
-    if (!blockId) {
-        console.warn('[pagedPosition] Best block has no data-block-id');
-        return null;
-    }
+    if (!blockId) return null;
 
-    // Calculate block local offset (how far into the block we've read)
     const blockRect = bestBlock.getBoundingClientRect();
-    const blockText = getCleanTextContent(bestBlock);
-    const blockChars = blockText.length;
-
+    const blockChars = getCleanTextContent(bestBlock).length;
     let blockLocalOffset = 0;
+
     if (blockChars > 0) {
-        let readRatio: number;
+        const viewportNaturalStart = pageIndex * pageSize;
+        const blockNaturalStart = isVertical
+            ? containerRect.right - blockRect.right
+            : blockRect.top - containerRect.top;
 
-        const currentOffset = pageIndex * pageSize;
-        if (isVertical) {
-            const blockNaturalStart = containerRect.right - blockRect.right;
-            const readAmount = currentOffset - blockNaturalStart;
-            // In vertical-rl, width is the "scrolling" dimension
-            readRatio = Math.max(0, Math.min(1, readAmount / (blockRect.width || 1)));
-        } else {
-            const blockNaturalStart = blockRect.top - containerRect.top;
-            const readAmount = currentOffset - blockNaturalStart;
-            // In horizontal, height is the "scrolling" dimension
-            readRatio = Math.max(0, Math.min(1, readAmount / (blockRect.height || 1)));
-        }
-
-        blockLocalOffset = Math.floor(blockChars * readRatio);
+        const readAmount = viewportNaturalStart - blockNaturalStart;
+        const blockSize = isVertical ? blockRect.width : blockRect.height;
+        const ratio = Math.max(0, Math.min(1, readAmount / (blockSize || 1)));
+        blockLocalOffset = Math.floor(blockChars * ratio);
     }
 
-    // Calculate chapter character offset using blockMaps (precise!) or fallback to DOM counting
     let chapterCharOffset: number;
-    
     if (blockMaps && blockMaps.length > 0) {
         const chapterLookup = createChapterBlockLookup(blockMaps, chapterIndex);
         chapterCharOffset = calculateCharOffsetFromBlock(chapterLookup, blockId, blockLocalOffset);
     } else {
-        // Fallback: count from DOM
         chapterCharOffset = 0;
         for (const block of allBlocks) {
             if (block === bestBlock) {
                 chapterCharOffset += blockLocalOffset;
                 break;
             }
-            const text = getCleanTextContent(block);
-            chapterCharOffset += getCleanCharCount(text);
+            chapterCharOffset += getCleanCharCount(getCleanTextContent(block));
         }
     }
 
-    return {
-        blockId,
-        element: bestBlock,
-        blockLocalOffset,
-        chapterCharOffset,
-    };
+    return { blockId, element: bestBlock, blockLocalOffset, chapterCharOffset };
 }
 
 /**
@@ -167,42 +124,13 @@ export function findPageForBlock(
     const containerRect = container.getBoundingClientRect();
     const blockRect = block.getBoundingClientRect();
 
-    // Calculate block's position in the scrollable content
     let blockPosition: number;
-
     if (isVertical) {
+        // Since both are shifted by same transform, the difference is the natural offset
         blockPosition = containerRect.right - blockRect.right;
     } else {
         blockPosition = blockRect.top - containerRect.top;
     }
 
-    return Math.floor(blockPosition / pageSize);
-}
-
-/**
- * Restore position to a specific block on a page
- */
-export function restoreToBlockPaged(
-    container: HTMLElement,
-    blockId: string,
-    blockLocalOffset: number,
-    pageSize: number,
-    isVertical: boolean
-): { pageIndex: number; success: boolean } {
-    const block = container.querySelector(`[data-block-id="${blockId}"]`);
-
-    if (!block) {
-        console.warn('[pagedPosition] Block not found for restoration:', blockId);
-        return { pageIndex: 0, success: false };
-    }
-
-    const pageIndex = findPageForBlock(container, blockId, pageSize, isVertical);
-
-    console.log('[pagedPosition] Restored to block:', {
-        blockId,
-        pageIndex,
-        blockLocalOffset,
-    });
-
-    return { pageIndex, success: true };
+    return Math.floor(Math.abs(blockPosition) / pageSize);
 }

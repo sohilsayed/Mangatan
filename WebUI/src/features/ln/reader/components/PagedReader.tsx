@@ -60,7 +60,6 @@ const SAVE_DEBOUNCE_MS = 3000;
 const POSITION_DETECT_DELAY_MS = 150;
 const SWIPE_MIN_DISTANCE = 50;
 const SWIPE_MAX_TIME = 500;
-const VIEWPORT_BUFFER = 1; // current +- 1
 
 // ============================================================================
 // Component
@@ -250,50 +249,28 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             const content = contentRef.current;
             if (!content) return;
 
-            // Wait for fonts and images
-            if (document.fonts) await document.fonts.ready;
-
-            const images = content.querySelectorAll('img');
-            await Promise.all(Array.from(images).map(img => {
-                if (img.complete) return Promise.resolve();
-                return new Promise<void>(resolve => {
-                    img.onload = () => resolve();
-                    img.onerror = () => resolve();
-                    setTimeout(resolve, 500);
-                });
-            }));
+            const result = await calculatePagination(content, {
+                width: dimensions.width,
+                height: dimensions.height,
+                isVertical,
+                marginTop: settings.lnMarginTop ?? 24,
+                marginBottom: settings.lnMarginBottom ?? 24,
+                marginLeft: settings.lnMarginLeft ?? 24,
+                marginRight: settings.lnMarginRight ?? 24,
+            });
 
             if (cancelled) return;
 
-            // Measure in-place
-            const availableW = dimensions.width - (settings.lnMarginLeft ?? 24) - (settings.lnMarginRight ?? 24);
-            const availableH = dimensions.height - (settings.lnMarginTop ?? 24) - (settings.lnMarginBottom ?? 24);
-
-            // Force content to flow naturally for measurement
-            content.style.transform = 'none';
-            content.style.width = isVertical ? 'auto' : `${availableW}px`;
-            content.style.height = isVertical ? `${availableH}px` : 'auto';
-            content.style.contain = 'none';
-
-            // Wait for layout
-            await new Promise(resolve => requestAnimationFrame(resolve));
-
-            const scrollSize = isVertical ? content.scrollWidth : content.scrollHeight;
-            const pageSize = isVertical ? availableW : availableH;
-            const calculatedPages = Math.max(1, Math.ceil((scrollSize - 1) / pageSize));
-
-            if (cancelled) return;
-
-            setTotalPages(calculatedPages);
-            setMeasuredPageSize(pageSize);
+            setTotalPages(result.totalPages);
+            setMeasuredPageSize(result.pageSize);
 
             const intent = navigationIntentRef.current;
             navigationIntentRef.current = null;
 
             if (intent?.goToLastPage) {
-                setCurrentPage(calculatedPages - 1);
+                setCurrentPage(result.totalPages - 1);
             } else {
-                setCurrentPage(p => Math.min(p, calculatedPages - 1));
+                setCurrentPage(p => Math.min(p, result.totalPages - 1));
             }
 
             setContentReady(true);
@@ -303,7 +280,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         doPagination();
 
         return () => { cancelled = true; };
-    }, [currentHtml, layoutKey, isVertical, typographyStyles, dimensions]);
+    }, [currentHtml, layoutKey, isVertical, dimensions]);
 
     // ========================================================================
     // Navigation
@@ -347,13 +324,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
     const detectAndReportPosition = useCallback(() => {
         if (restorePendingRef.current || Date.now() < saveLockUntilRef.current) return;
-        if (!contentReady || !viewportRef.current || !stats || measuredPageSize <= 0) return;
+        if (!contentReady || !contentRef.current || !stats || measuredPageSize <= 0) return;
 
-        // Detection using the contentRef
-        if (!contentRef.current) return;
-
-        // Temporarily reset transform for measurement if needed,
-        // but detectVisibleBlockPaged is designed to handle offsets.
         const detected = detectVisibleBlockPaged(
             contentRef.current,
             currentPage,
@@ -430,26 +402,14 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             if (blockEl) {
                 const rect = blockEl.getBoundingClientRect();
                 const contentRect = contentRef.current!.getBoundingClientRect();
-                
-                // Content coordinates are currently shifted by transform.
-                // We need the "natural" position relative to the content start.
-                const currentOffset = currentPage * measuredPageSize;
 
-                let naturalPosition;
-                if (isVertical) {
-                    // Vertical-rl: content flows right-to-left.
-                    // Both contentRect and rect are shifted by the same transform,
-                    // so their relative distance is the natural offset from the start.
-                    naturalPosition = contentRect.right - rect.right;
-                } else {
-                    // Horizontal: flows top-to-bottom.
-                    naturalPosition = rect.top - contentRect.top;
-                }
+                // Natural positions are transform-invariant when calculated relative to the content container
+                const naturalPosition = isVertical
+                    ? (contentRect.right - rect.right)
+                    : (rect.top - contentRect.top);
 
                 const targetPage = Math.floor(Math.abs(naturalPosition) / measuredPageSize);
                 const clamped = Math.max(0, Math.min(targetPage, totalPages - 1));
-
-                console.log('[PagedReader] Restoring to page:', clamped, 'naturalPos:', naturalPosition);
 
                 lastRestoreKeyRef.current = restoreKey;
                 setCurrentPage(clamped);
@@ -462,7 +422,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         };
 
         tryRestore();
-    }, [contentReady, measuredPageSize, totalPages, currentSection, isVertical, layoutKey]);
+    }, [contentReady, measuredPageSize, totalPages, currentSection, isVertical, layoutKey, currentPage]);
 
     // ========================================================================
     // Touch/Click Handlers
@@ -581,12 +541,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             if (chapterIndex !== -1 && chapterIndex < chapters.length) {
                 if (chapterIndex === currentSection && anchor) {
                     setTimeout(() => {
-                        const element = measureRef.current?.querySelector(`#${CSS.escape(anchor)}`);
+                        const element = contentRef.current?.querySelector(`#${CSS.escape(anchor)}`);
                         if (element && measuredPageSize > 0) {
                             const rect = element.getBoundingClientRect();
-                            const measureRect = measureRef.current!.getBoundingClientRect();
-                            const offset = isVertical ? (rect.left - measureRect.left) : (rect.top - measureRect.top);
-                            const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
+                            const contentRect = contentRef.current!.getBoundingClientRect();
+                            const naturalOffset = isVertical ? (contentRect.right - rect.right) : (rect.top - contentRect.top);
+                            const targetPage = Math.floor(Math.abs(naturalOffset) / measuredPageSize);
                             goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
                         }
                     }, 100);
@@ -594,12 +554,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     goToSection(chapterIndex, false);
                     if (anchor) {
                         setTimeout(() => {
-                            const element = measureRef.current?.querySelector(`#${CSS.escape(anchor)}`);
+                            const element = contentRef.current?.querySelector(`#${CSS.escape(anchor)}`);
                             if (element && measuredPageSize > 0) {
                                 const rect = element.getBoundingClientRect();
-                                const measureRect = measureRef.current!.getBoundingClientRect();
-                                const offset = isVertical ? (rect.left - measureRect.left) : (rect.top - measureRect.top);
-                                const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
+                                const contentRect = contentRef.current!.getBoundingClientRect();
+                                const naturalOffset = isVertical ? (contentRect.right - rect.right) : (rect.top - contentRect.top);
+                                const targetPage = Math.floor(Math.abs(naturalOffset) / measuredPageSize);
                                 goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
                             }
                         }, 500);
@@ -610,7 +570,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
         container.addEventListener('epub-link-clicked', handleEpubLink);
         return () => container.removeEventListener('epub-link-clicked', handleEpubLink);
-    }, [chapters.length, goToSection, chapterFilenames, currentSection, goToPage, isVertical, measuredPageSize, totalPages]);
+    }, [chapters.length, goToSection, chapterFilenames, currentSection, goToPage, isVertical, measuredPageSize, totalPages, currentPage]);
 
     // ========================================================================
     // Wheel Handler
@@ -669,7 +629,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     }, []);
 
     // ========================================================================
-    // Virtualized Page Viewports
+    // Styles
     // ========================================================================
 
     const getPageStyle = useCallback(() => {
@@ -683,13 +643,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             width: `${availableW}px`,
             height: `${availableH}px`,
             overflow: 'hidden',
+            direction: isVertical ? 'rtl' : 'ltr' as const,
         };
-    }, [dimensions, settings.lnMarginLeft, settings.lnMarginRight, settings.lnMarginTop, settings.lnMarginBottom]);
+    }, [dimensions, settings.lnMarginLeft, settings.lnMarginRight, settings.lnMarginTop, settings.lnMarginBottom, isVertical]);
 
     const getPageContentStyle = useCallback(() => {
         const offset = currentPage * measuredPageSize;
-        // In vertical-rl, content flows right-to-left.
-        // Page 0 is at offset 0. Page 1 is shifted right by measuredPageSize (to reveal content to the left).
+        // In vertical-rl, shifting content right (positive translateX) reveals content to the left.
         const transform = isVertical ? `translateX(${offset}px)` : `translateY(-${offset}px)`;
 
         const brightness = settings.lnTextBrightness ?? 100;
@@ -704,13 +664,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             transform,
             transition: settings.lnDisableAnimations ? 'none' : 'transform 0.3s ease-out',
             willChange: 'transform',
-            width: isVertical ? 'auto' : `${availableW}px`,
-            height: isVertical ? `${availableH}px` : 'auto',
+            width: isVertical ? 'max-content' : `${availableW}px`,
+            height: isVertical ? `${availableH}px` : 'max-content',
             writingMode: isVertical ? 'vertical-rl' : 'horizontal-tb' as const,
-            // Optimization: preserve layout during transforms
-            contain: (contentReady && !isTransitioning) ? 'strict' : 'none',
+            // Optimization: avoid re-layout during animation
+            contain: (contentReady && !isTransitioning) ? 'content' : 'none',
         };
-    }, [currentPage, measuredPageSize, isVertical, settings.lnTextBrightness, settings.lnDisableAnimations, theme.fg, typographyStyles]);
+    }, [currentPage, measuredPageSize, isVertical, settings.lnTextBrightness, settings.lnDisableAnimations, theme.fg, typographyStyles, dimensions, settings.lnMarginLeft, settings.lnMarginRight, settings.lnMarginTop, settings.lnMarginBottom, contentReady, isTransitioning]);
 
     const handleSaveNow = useCallback(async () => await saveSchedulerRef.current.saveNow(), []);
 
