@@ -711,6 +711,123 @@ export const ReaderControls: React.FC<Props> = ({
                             sx={{ color: theme.fg }}
                         />
                     </Box>
+
+                    {/* Individual Margins */}
+                    <Box sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Top Margin</Typography>
+                            <TextField
+                                size="small"
+                                value={settings.lnMarginTop ?? 24}
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10);
+                                    if (!isNaN(val) && val >= 0 && val <= 200) {
+                                        onUpdateSettings('lnMarginTop', val);
+                                    }
+                                }}
+                                type="number"
+                                sx={getInputStyles(theme)}
+                                InputProps={{
+                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                }}
+                            />
+                        </Box>
+                        <Slider
+                            value={settings.lnMarginTop ?? 24}
+                            min={0}
+                            max={200}
+                            step={2}
+                            onChange={(_, v) => onUpdateSettings('lnMarginTop', v)}
+                            sx={{ color: theme.fg }}
+                        />
+                    </Box>
+
+                    <Box sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Bottom Margin</Typography>
+                            <TextField
+                                size="small"
+                                value={settings.lnMarginBottom ?? 24}
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10);
+                                    if (!isNaN(val) && val >= 0 && val <= 200) {
+                                        onUpdateSettings('lnMarginBottom', val);
+                                    }
+                                }}
+                                type="number"
+                                sx={getInputStyles(theme)}
+                                InputProps={{
+                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                }}
+                            />
+                        </Box>
+                        <Slider
+                            value={settings.lnMarginBottom ?? 24}
+                            min={0}
+                            max={200}
+                            step={2}
+                            onChange={(_, v) => onUpdateSettings('lnMarginBottom', v)}
+                            sx={{ color: theme.fg }}
+                        />
+                    </Box>
+
+                    <Box sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Left Margin</Typography>
+                            <TextField
+                                size="small"
+                                value={settings.lnMarginLeft ?? 24}
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10);
+                                    if (!isNaN(val) && val >= 0 && val <= 200) {
+                                        onUpdateSettings('lnMarginLeft', val);
+                                    }
+                                }}
+                                type="number"
+                                sx={getInputStyles(theme)}
+                                InputProps={{
+                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                }}
+                            />
+                        </Box>
+                        <Slider
+                            value={settings.lnMarginLeft ?? 24}
+                            min={0}
+                            max={200}
+                            step={2}
+                            onChange={(_, v) => onUpdateSettings('lnMarginLeft', v)}
+                            sx={{ color: theme.fg }}
+                        />
+                    </Box>
+
+                    <Box sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                            <Typography variant="caption" sx={{ opacity: 0.8 }}>Right Margin</Typography>
+                            <TextField
+                                size="small"
+                                value={settings.lnMarginRight ?? 24}
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value, 10);
+                                    if (!isNaN(val) && val >= 0 && val <= 200) {
+                                        onUpdateSettings('lnMarginRight', val);
+                                    }
+                                }}
+                                type="number"
+                                sx={getInputStyles(theme)}
+                                InputProps={{
+                                    endAdornment: <InputAdornment position="end" sx={{ color: theme.fg }}>px</InputAdornment>
+                                }}
+                            />
+                        </Box>
+                        <Slider
+                            value={settings.lnMarginRight ?? 24}
+                            min={0}
+                            max={200}
+                            step={2}
+                            onChange={(_, v) => onUpdateSettings('lnMarginRight', v)}
+                            sx={{ color: theme.fg }}
+                        />
+                    </Box>
                 </Box>
 
                 <Divider sx={{ my: 3, borderColor: `${theme.fg}22` }} />

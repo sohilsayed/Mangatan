@@ -147,6 +147,10 @@ export interface Settings {
     lnPaginationMode: 'scroll' | 'paginated' | 'single-page';
     lnPageWidth: number;
     lnPageMargin: number;
+    lnMarginTop: number;
+    lnMarginBottom: number;
+    lnMarginLeft: number;
+    lnMarginRight: number;
     lnEnableFurigana: boolean;
     lnTextAlign: 'left' | 'center' | 'justify';
     lnLetterSpacing: number;
@@ -389,6 +393,10 @@ export const DEFAULT_SETTINGS: Settings = {
     lnPaginationMode: 'paginated',
     lnPageWidth: 800,
     lnPageMargin: 40,
+    lnMarginTop: 24,
+    lnMarginBottom: 24,
+    lnMarginLeft: 24,
+    lnMarginRight: 24,
     lnEnableFurigana: true,
     lnTextAlign: 'justify',
     lnLetterSpacing: 0,

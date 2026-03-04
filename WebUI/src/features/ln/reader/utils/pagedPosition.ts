@@ -63,18 +63,18 @@ export function detectVisibleBlockPaged(
         let viewportEnd: number;
 
         if (isVertical) {
-            // Vertical mode: transforms are translateY
-            blockPosition = rect.top - containerRect.top + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.height;
+            // Natural position from right edge
+            blockPosition = containerRect.right - rect.right;
+            viewportStart = pageIndex * pageSize;
+            viewportEnd = viewportStart + pageSize;
         } else {
-            // Horizontal mode: transforms are translateX
-            blockPosition = rect.left - containerRect.left + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.width;
+            // Natural position from top edge
+            blockPosition = rect.top - containerRect.top;
+            viewportStart = pageIndex * pageSize;
+            viewportEnd = viewportStart + pageSize;
         }
 
-        const blockSize = isVertical ? rect.height : rect.width;
+        const blockSize = isVertical ? rect.width : rect.height; // Logic fixed
         const blockEnd = blockPosition + blockSize;
 
         // Check if block is visible on current page
@@ -109,16 +109,17 @@ export function detectVisibleBlockPaged(
     if (blockChars > 0) {
         let readRatio: number;
 
+        const currentOffset = pageIndex * pageSize;
         if (isVertical) {
-            const scrollTop = pageIndex * pageSize;
-            const blockTop = blockRect.top - containerRect.top + scrollTop;
-            const readAmount = scrollTop - blockTop;
-            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
+            const blockNaturalStart = containerRect.right - blockRect.right;
+            const readAmount = currentOffset - blockNaturalStart;
+            // In vertical-rl, width is the "scrolling" dimension
+            readRatio = Math.max(0, Math.min(1, readAmount / (blockRect.width || 1)));
         } else {
-            const scrollLeft = pageIndex * pageSize;
-            const blockLeft = blockRect.left - containerRect.left + scrollLeft;
-            const readAmount = scrollLeft - blockLeft;
-            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
+            const blockNaturalStart = blockRect.top - containerRect.top;
+            const readAmount = currentOffset - blockNaturalStart;
+            // In horizontal, height is the "scrolling" dimension
+            readRatio = Math.max(0, Math.min(1, readAmount / (blockRect.height || 1)));
         }
 
         blockLocalOffset = Math.floor(blockChars * readRatio);
@@ -170,9 +171,9 @@ export function findPageForBlock(
     let blockPosition: number;
 
     if (isVertical) {
-        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
+        blockPosition = containerRect.right - blockRect.right;
     } else {
-        blockPosition = blockRect.left - containerRect.left + (container.scrollLeft || 0);
+        blockPosition = blockRect.top - containerRect.top;
     }
 
     return Math.floor(blockPosition / pageSize);
