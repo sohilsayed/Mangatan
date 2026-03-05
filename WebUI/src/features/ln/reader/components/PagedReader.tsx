@@ -16,6 +16,7 @@ import { SelectionHandles } from './SelectionHandles';
 import { buildTypographyStyles } from '../utils/styles';
 import { handleKeyNavigation, NavigationCallbacks } from '../utils/navigation';
 import { PagedReaderProps } from '../types/reader';
+import { ReaderPage } from './ReaderPage';
 import { detectVisibleBlockPaged, restoreToBlockPaged } from '../utils/pagedPosition';
 import { extractContextSnippet } from '../utils/blockPosition';
 import { getReaderTheme } from '../utils/themes';
@@ -97,6 +98,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const wrapperRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
     const contentRef = useRef<HTMLDivElement>(null);
+    const measureRef = useRef<HTMLDivElement>(null);
     const wheelTimeoutRef = useRef<number | null>(null);
     const navigationIntentRef = useRef<{ goToLastPage: boolean } | null>(null);
     const positionDetectTimerRef = useRef<number | null>(null);
@@ -292,6 +294,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             contentW,
             contentH,
             columnWidth,
+            effectivePageSize: columnWidth + gap,
         };
     }, [dimensions, settings.lnPageMargin, isVertical, safeInsets.bottom, safeInsets.left, safeInsets.right, safeInsets.top]);
 
@@ -319,12 +322,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const transform = useMemo(() => {
         const effectivePageSize = measuredPageSize > 0
             ? measuredPageSize
-            : (layout?.columnWidth || 0) + (layout?.gap || 80);
+            : (layout?.effectivePageSize || 0);
         const pageOffset = Math.round(currentPage * effectivePageSize);
         return isVertical
             ? `translateY(-${pageOffset}px)`
             : `translateX(-${pageOffset}px)`;
-    }, [currentPage, measuredPageSize, layout?.columnWidth, layout?.gap, isVertical]);
+    }, [currentPage, measuredPageSize, layout?.effectivePageSize, isVertical]);
 
     // Memoized content style to prevent re-renders on UI toggle
     const contentStyle = useMemo(() => {
@@ -429,14 +432,21 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     // ========================================================================
 
     useLayoutEffect(() => {
-        if (!contentRef.current || !layout) return;
+        if (!measureRef.current || !layout) return;
 
         let cancelled = false;
 
         const calculatePages = async () => {
             setContentReady(false);
 
-            const content = contentRef.current;
+            const measureHost = measureRef.current;
+            if (!measureHost || cancelled) return;
+
+            // Get shadow root
+            const shadow = measureHost.shadowRoot;
+            if (!shadow) return;
+
+            const content = shadow.querySelector('.content') as HTMLElement;
             if (!content || cancelled) return;
 
             // Wait for fonts
@@ -471,15 +481,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
             if (cancelled) return;
 
-            const currentContent = contentRef.current;
-            if (!currentContent) return;
-
             // Force reflow
-            void currentContent.offsetHeight;
-            void currentContent.scrollWidth;
+            void content.offsetHeight;
+            void content.scrollWidth;
 
             // Get actual values from browser
-            const computedStyle = window.getComputedStyle(currentContent);
+            const computedStyle = window.getComputedStyle(content);
             const actualColumnWidth = parseFloat(computedStyle.columnWidth) || layout.columnWidth;
             const actualGap = parseFloat(computedStyle.columnGap) || layout.gap;
             const actualPageSize = actualColumnWidth + actualGap;
@@ -488,8 +495,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
             // Calculate total pages
             const scrollSize = isVertical
-                ? currentContent.scrollHeight
-                : currentContent.scrollWidth;
+                ? content.scrollHeight
+                : content.scrollWidth;
 
             let calculatedPages = 1;
             if (scrollSize > actualColumnWidth) {
@@ -536,16 +543,16 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             return;
         }
 
-        if (!contentReady || !viewportRef.current || !stats) return;
+        if (!contentReady || !contentRef.current || !stats) return;
 
         const pageSize = measuredPageSize > 0
             ? measuredPageSize
-            : (layout?.columnWidth || 0) + (layout?.gap || 80);
+            : (layout?.effectivePageSize || 0);
 
         if (pageSize <= 0) return;
 
         const detected = detectVisibleBlockPaged(
-            viewportRef.current,
+            contentRef.current, // Use the active page element
             currentPage,
             pageSize,
             isVertical,
@@ -658,7 +665,9 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             await new Promise(resolve => requestAnimationFrame(resolve));
 
             // Verify blocks exist for the anchor chapter
-            const blocks = contentRef.current.querySelectorAll(`[data-block-id^="ch${anchorChapter}-b"]`);
+            const shadow = contentRef.current.shadowRoot;
+            const content = shadow?.querySelector('.content') || contentRef.current;
+            const blocks = content.querySelectorAll(`[data-block-id^="ch${anchorChapter}-b"]`);
             
             if (blocks.length === 0) {
                 console.log('[PagedReader] No blocks found for chapter', anchorChapter, '- skipping restoration');
@@ -676,7 +685,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 return;
             }
 
-            let blockEl = contentRef.current.querySelector(
+            let blockEl = content.querySelector(
                 `[data-block-id="${anchorBlockId}"]`
             ) as HTMLElement | null;
 
@@ -685,7 +694,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 const pos = getPositionFromCharOffset(chapterLookup, anchor.chapterCharOffset);
                 
                 if (pos) {
-                    blockEl = contentRef.current.querySelector(
+                    blockEl = content.querySelector(
                         `[data-block-id="${pos.blockId}"]`
                     ) as HTMLElement | null;
                     
@@ -707,7 +716,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             }
 
             const blockRect = blockEl.getBoundingClientRect();
-            const contentRect = contentRef.current.getBoundingClientRect();
+            const contentRect = content.getBoundingClientRect();
 
             // Match your existing logic (vertical uses translateY, horizontal uses translateX)
             const offset = isVertical
@@ -1013,10 +1022,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 if (chapterIndex === currentSection && anchor) {
                     // Same chapter, scroll to anchor
                     setTimeout(() => {
-                        const element = document.getElementById(anchor);
-                        if (element && contentRef.current && measuredPageSize > 0) {
+                        const shadow = contentRef.current?.shadowRoot;
+                        const element = shadow?.getElementById(anchor);
+                        const content = shadow?.querySelector('.content');
+                        if (element && content && measuredPageSize > 0) {
                             const rect = element.getBoundingClientRect();
-                            const contentRect = contentRef.current.getBoundingClientRect();
+                            const contentRect = content.getBoundingClientRect();
                             const offset = isVertical
                                 ? rect.top - contentRect.top
                                 : rect.left - contentRect.left;
@@ -1030,10 +1041,12 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
                     if (anchor) {
                         setTimeout(() => {
-                            const element = document.getElementById(anchor);
-                            if (element && contentRef.current && measuredPageSize > 0) {
+                            const shadow = contentRef.current?.shadowRoot;
+                            const element = shadow?.getElementById(anchor);
+                            const content = shadow?.querySelector('.content');
+                            if (element && content && measuredPageSize > 0) {
                                 const rect = element.getBoundingClientRect();
-                                const contentRect = contentRef.current.getBoundingClientRect();
+                                const contentRect = content.getBoundingClientRect();
                                 const offset = isVertical
                                     ? rect.top - contentRect.top
                                     : rect.left - contentRect.left;
@@ -1145,7 +1158,7 @@ useEffect(() => {
     // Calculate derived values for rendering
     const effectivePageSize = measuredPageSize > 0
         ? measuredPageSize
-        : (layout?.columnWidth || 0) + (layout?.gap || 80);
+        : (layout?.effectivePageSize || 0);
 
     const pageProgressPercent = totalPages > 0
         ? ((currentPage + 1) / totalPages) * 100
@@ -1165,17 +1178,24 @@ useEffect(() => {
     style={wrapperStyle}
     data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
 >
-            {/* Dynamic image sizing */}
-            <style>{`
-                .paged-content img {
-                    max-width: 100vw !important;
-                    max-height: ${layout ? layout.contentH : 1000}px;
-                    width: auto;
-                    height: auto;
-                    display: block;
-                    object-fit: contain;
-                }
-            `}</style>
+            {/* Hidden measurement container */}
+            <div style={{ visibility: 'hidden', position: 'absolute', width: '100%', height: '100%', pointerEvents: 'none' }}>
+                <ReaderPage
+                    className="paged-measure"
+                    html={currentHtml}
+                    css={css}
+                    pageIndex={0}
+                    pageSize={effectivePageSize}
+                    isVertical={isVertical}
+                    isKorean={isKorean}
+                    settings={settings}
+                    contentStyle={contentStyle}
+                    onMount={(shadow) => {
+                        // Keep a reference if needed
+                    }}
+                    ref={measureRef as any}
+                />
+            </div>
 
             {/* Viewport */}
             <div
@@ -1197,15 +1217,56 @@ useEffect(() => {
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
             >
-                {/* Content */}
+                {/* Strip of Pages */}
                 <div
-                    ref={contentRef}
-                    className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
-                    lang={isKorean ? "ko" : undefined}
-                    style={contentStyle}
+                    className="paged-strip"
+                    style={{
+                        display: 'flex',
+                        flexDirection: isVertical ? 'column' : 'row',
+                        width: isVertical ? '100%' : 'auto',
+                        height: isVertical ? 'auto' : '100%',
+                        transform: transform,
+                        transition: settings.lnDisableAnimations ? 'none' : 'transform 0.3s ease-out',
+                        willChange: 'transform',
+                    }}
                 >
-                    {css && <style>{css}</style>}
-                    <div dangerouslySetInnerHTML={{ __html: currentHtml }} />
+                    {Array.from({ length: totalPages }).map((_, i) => {
+                        const isVisible = Math.abs(i - currentPage) <= 1;
+                        if (!isVisible) return (
+                            <div
+                                key={i}
+                                style={{
+                                    width: isVertical ? layout.contentW : layout.columnWidth,
+                                    height: isVertical ? layout.columnWidth : layout.contentH,
+                                    marginRight: isVertical ? 0 : layout.gap,
+                                    marginBottom: isVertical ? layout.gap : 0,
+                                    flexShrink: 0
+                                }}
+                            />
+                        );
+
+                        return (
+                            <ReaderPage
+                                key={i}
+                                className={`reader-page paged-column ${i === currentPage ? 'active' : ''}`}
+                                html={currentHtml}
+                                css={css}
+                                pageIndex={i}
+                                pageSize={effectivePageSize}
+                                isVertical={isVertical}
+                                isKorean={isKorean}
+                                settings={settings}
+                                contentStyle={{
+                                    ...contentStyle,
+                                    transform: 'none', // Shifting is handled by ReaderPage internally
+                                    transition: 'none', // No animation for the internal shift
+                                    marginRight: isVertical ? 0 : layout.gap,
+                                    marginBottom: isVertical ? layout.gap : 0,
+                                }}
+                                ref={i === currentPage ? (contentRef as any) : undefined}
+                            />
+                        );
+                    })}
                 </div>
             </div>
 

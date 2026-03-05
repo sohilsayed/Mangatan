@@ -40,8 +40,13 @@ export function detectVisibleBlockPaged(
     chapterIndex: number,
     blockMaps?: BlockIndexMap[]
 ): DetectedBlock | null {
+    // With Shadow DOM, the blocks are inside the shadow root of the ReaderPage
+    // container here is the host element (ReaderPage)
+    const shadow = container.shadowRoot;
+    const content = shadow?.querySelector('.content') || container;
+
     // Get all blocks
-    const allBlocks = container.querySelectorAll('[data-block-id]');
+    const allBlocks = content.querySelectorAll('[data-block-id]');
 
     if (allBlocks.length === 0) {
         console.warn('[pagedPosition] No blocks found in container');
@@ -54,34 +59,26 @@ export function detectVisibleBlockPaged(
     let bestBlock: Element | null = null;
     let bestDistance = Infinity;
 
+    // The container here is the active ReaderPage, which already has transform: none.
+    // However, the content inside it is shifted by -pageIndex * pageSize.
+    // We want to find the block that is visible within the physical bounds of the container.
+    // Since the container itself is already positioned correctly in the viewport (part of paged-strip),
+    // we just need to check if the block's current bounding rect overlaps with the container's bounding rect.
+
     // Find block closest to the reading edge
     for (const block of allBlocks) {
         const rect = block.getBoundingClientRect();
 
-        let blockPosition: number;
-        let viewportStart: number;
-        let viewportEnd: number;
-
-        if (isVertical) {
-            // Vertical mode: transforms are translateY
-            blockPosition = rect.top - containerRect.top + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.height;
-        } else {
-            // Horizontal mode: transforms are translateX
-            blockPosition = rect.left - containerRect.left + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.width;
-        }
-
-        const blockSize = isVertical ? rect.height : rect.width;
-        const blockEnd = blockPosition + blockSize;
-
-        // Check if block is visible on current page
-        const isVisible = blockEnd > viewportStart && blockPosition < viewportEnd;
+        // Check if block overlaps with container
+        const isVisible = isVertical
+            ? (rect.bottom > containerRect.top && rect.top < containerRect.bottom)
+            : (rect.right > containerRect.left && rect.left < containerRect.right);
 
         if (isVisible) {
-            const distance = Math.abs(blockPosition - viewportStart);
+            const distance = isVertical
+                ? Math.abs(rect.top - containerRect.top)
+                : Math.abs(rect.left - containerRect.left);
+
             if (distance < bestDistance) {
                 bestDistance = distance;
                 bestBlock = block;
@@ -110,14 +107,10 @@ export function detectVisibleBlockPaged(
         let readRatio: number;
 
         if (isVertical) {
-            const scrollTop = pageIndex * pageSize;
-            const blockTop = blockRect.top - containerRect.top + scrollTop;
-            const readAmount = scrollTop - blockTop;
+            const readAmount = containerRect.top - blockRect.top;
             readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
         } else {
-            const scrollLeft = pageIndex * pageSize;
-            const blockLeft = blockRect.left - containerRect.left + scrollLeft;
-            const readAmount = scrollLeft - blockLeft;
+            const readAmount = containerRect.left - blockRect.left;
             readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
         }
 
@@ -160,22 +153,31 @@ export function findPageForBlock(
     pageSize: number,
     isVertical: boolean
 ): number {
-    const block = container.querySelector(`[data-block-id="${blockId}"]`);
+    const shadow = container.shadowRoot;
+    const content = shadow?.querySelector('.content') as HTMLElement;
+    if (!content) return 0;
+
+    const block = content.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement;
     if (!block) return 0;
 
-    const containerRect = container.getBoundingClientRect();
+    // Reset transform to measure true position relative to content container
+    const originalTransform = content.style.transform;
+    content.style.transform = 'none';
+
     const blockRect = block.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
 
-    // Calculate block's position in the scrollable content
     let blockPosition: number;
-
     if (isVertical) {
-        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
+        blockPosition = blockRect.top - contentRect.top;
     } else {
-        blockPosition = blockRect.left - containerRect.left + (container.scrollLeft || 0);
+        blockPosition = blockRect.left - contentRect.left;
     }
 
-    return Math.floor(blockPosition / pageSize);
+    // Restore transform
+    content.style.transform = originalTransform;
+
+    return Math.floor(Math.abs(blockPosition) / pageSize);
 }
 
 /**
@@ -188,7 +190,9 @@ export function restoreToBlockPaged(
     pageSize: number,
     isVertical: boolean
 ): { pageIndex: number; success: boolean } {
-    const block = container.querySelector(`[data-block-id="${blockId}"]`);
+    const shadow = container.shadowRoot;
+    const content = shadow?.querySelector('.content') || container;
+    const block = content.querySelector(`[data-block-id="${blockId}"]`);
 
     if (!block) {
         console.warn('[pagedPosition] Block not found for restoration:', blockId);

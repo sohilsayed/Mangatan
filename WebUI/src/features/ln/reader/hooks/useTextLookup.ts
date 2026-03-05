@@ -14,14 +14,14 @@ const WHITESPACE_REGEX = /\s/;
 
 const textEncoder = new TextEncoder();
 
-const getCaretRange = (x: number, y: number) => {
-    const pos = (document as any).caretPositionFromPoint?.(x, y);
+const getCaretRange = (x: number, y: number, root: Document | ShadowRoot = document) => {
+    const pos = (root as any).caretPositionFromPoint?.(x, y);
     if (pos) {
         const range = document.createRange();
         range.setStart(pos.offsetNode, pos.offset);
         return range;
     }
-    return document.caretRangeFromPoint?.(x, y) ?? null;
+    return (root as any).caretRangeFromPoint?.(x, y) ?? null;
 };
 
 export function useTextLookup() {
@@ -33,7 +33,18 @@ export function useTextLookup() {
         character: string;
         rect: DOMRect;
     } | null => {
-        const range = getCaretRange(x, y);
+        let root: Document | ShadowRoot = document;
+        let element = document.elementFromPoint(x, y);
+
+        // Pierce shadow roots
+        while (element?.shadowRoot) {
+            root = element.shadowRoot;
+            const nextElement = root.elementFromPoint(x, y);
+            if (nextElement === element || !nextElement) break;
+            element = nextElement;
+        }
+
+        const range = getCaretRange(x, y, root);
 
         if (!range || range.startContainer.nodeType !== Node.TEXT_NODE) {
             return null;

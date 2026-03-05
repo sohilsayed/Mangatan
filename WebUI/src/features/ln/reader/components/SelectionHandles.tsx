@@ -45,12 +45,23 @@ export const SelectionHandles: React.FC<SelectionHandlesProps> = ({
         const container = containerRef2.current;
         if (!container) return null;
 
+        let root: Document | ShadowRoot = document;
+        let element = document.elementFromPoint(x, y);
+
+        // Pierce shadow roots
+        while (element?.shadowRoot) {
+            root = element.shadowRoot;
+            const nextElement = root.elementFromPoint(x, y);
+            if (nextElement === element || !nextElement) break;
+            element = nextElement;
+        }
+
         let range: Range | null = null;
 
-        if (document.caretRangeFromPoint) {
-            range = document.caretRangeFromPoint(x, y);
-        } else if ((document as any).caretPositionFromPoint) {
-            const pos = (document as any).caretPositionFromPoint(x, y);
+        if ((root as any).caretRangeFromPoint) {
+            range = (root as any).caretRangeFromPoint(x, y);
+        } else if ((root as any).caretPositionFromPoint) {
+            const pos = (root as any).caretPositionFromPoint(x, y);
             if (pos) {
                 range = document.createRange();
                 range.setStart(pos.offsetNode, pos.offset);
@@ -59,7 +70,11 @@ export const SelectionHandles: React.FC<SelectionHandlesProps> = ({
         }
 
         if (!range) return null;
-        if (!container.contains(range.startContainer)) return null;
+        // Check container or container's shadow root
+        const isInContainer = container.contains(range.startContainer) ||
+                            (container.shadowRoot && container.shadowRoot.contains(range.startContainer));
+
+        if (!isInContainer) return null;
 
         const rect = range.getBoundingClientRect();
         
@@ -310,9 +325,12 @@ export const SelectionHandles: React.FC<SelectionHandlesProps> = ({
         }
 
         let blockId = '';
-        let blockEl: Element | null = range.startContainer.parentElement;
+        let blockEl: Element | null = range.startContainer instanceof Element
+            ? range.startContainer
+            : range.startContainer.parentElement;
+
         while (blockEl && !blockEl.hasAttribute('data-block-id')) {
-            blockEl = blockEl.parentElement;
+            blockEl = blockEl.parentElement || (blockEl.getRootNode() instanceof ShadowRoot ? (blockEl.getRootNode() as ShadowRoot).host : null);
         }
         if (blockEl) {
             blockId = blockEl.getAttribute('data-block-id') || '';
