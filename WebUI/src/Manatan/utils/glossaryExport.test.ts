@@ -47,13 +47,13 @@ test('buildGlossaryExport renders styled format correctly', () => {
     assert.ok(html.includes('.yomitan-glossary [data-dictionary="新和英大辞典 第5版"] { .gloss-sc-div { margin-bottom: 2px; } }'));
 });
 
-test('buildGlossaryExport renders plaintext format correctly', () => {
-    const text = buildGlossaryExport(mockEntry, 'plaintext');
+test('buildGlossaryExport renders plain format correctly', () => {
+    const text = buildGlossaryExport(mockEntry, 'plain');
 
     assert.ok(text.includes('(新和英大辞典 第5版) [adj-pn]'));
     assert.ok(text.includes('1 〔満足できる〕 satisfactory'));
     assert.ok(text.includes('2 〔いい〕 good'));
-    assert.ok(!text.includes('<div'));
+    assert.ok(text.includes('<br />'));
 });
 
 test('buildGlossaryExport handles targetDictionary filtering', () => {
@@ -61,7 +61,7 @@ test('buildGlossaryExport handles targetDictionary filtering', () => {
     assert.equal(html, '');
 });
 
-test('buildGlossaryExport handles whitespace and newlines in plaintext', () => {
+test('buildGlossaryExport handles whitespace and newlines in plain mode', () => {
     const entryWithWhitespace: DictionaryResult = {
         ...mockEntry,
         glossary: [{
@@ -69,9 +69,9 @@ test('buildGlossaryExport handles whitespace and newlines in plaintext', () => {
             content: ['  Line 1  ', '  Line 2  \n  Line 3  ']
         }]
     };
-    const text = buildGlossaryExport(entryWithWhitespace, 'plaintext');
-    // Result should be: "(新和英大辞典 第5版) [adj-pn]\nLine 1\nLine 2\nLine 3"
-    assert.ok(text.includes('Line 1\nLine 2\nLine 3'), `Text was actually: ${JSON.stringify(text)}`);
+    const text = buildGlossaryExport(entryWithWhitespace, 'plain');
+    // Result should use <br /> for newlines
+    assert.ok(text.includes('Line 1<br />Line 2<br />Line 3'), `Text was actually: ${JSON.stringify(text)}`);
 });
 
 test('buildGlossaryExport handles newlines in styled HTML', () => {

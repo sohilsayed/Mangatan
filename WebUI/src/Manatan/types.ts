@@ -68,7 +68,7 @@ export type WordAudioSource =
 
 export type WordAudioSourceSelection = WordAudioSource | 'auto';
 
-export type AnkiGlossaryFormat = 'styled' | 'plaintext';
+export type AnkiGlossaryFormat = 'styled' | 'plain';
 
 export interface ServerSettingsData { authUsername?: string; authPassword?: string; }
 

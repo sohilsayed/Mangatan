@@ -15,7 +15,12 @@ function generatePlaintextNode(node: any): string {
 
     const { tag, content } = node;
     if (tag === 'br') return '\n';
-    return generatePlaintextNode(content);
+
+    const text = generatePlaintextNode(content);
+    if (['div', 'p', 'li', 'tr'].includes(tag)) {
+        return `\n${text}\n`;
+    }
+    return text;
 }
 
 function generateHTMLNode(node: any, dictionaryName?: string): string {
@@ -77,7 +82,7 @@ function generateHTMLNode(node: any, dictionaryName?: string): string {
 
 export function buildGlossaryExport(
     entry: DictionaryResult,
-    format: 'styled' | 'plaintext',
+    format: 'styled' | 'plain',
     targetDictionary?: string
 ): string {
     const glossaryEntries = targetDictionary
@@ -86,7 +91,7 @@ export function buildGlossaryExport(
 
     if (glossaryEntries.length === 0) return '';
 
-    if (format === 'plaintext') {
+    if (format === 'plain') {
         return glossaryEntries.map((def) => {
             const header = `(${def.dictionaryName})`;
             const tags = def.tags.length > 0 ? ` [${def.tags.join(', ')}]` : '';
@@ -94,13 +99,15 @@ export function buildGlossaryExport(
                 const trimmed = c.trim();
                 if (!trimmed) return '';
                 try {
-                    return generatePlaintextNode(JSON.parse(trimmed));
+                    const text = generatePlaintextNode(JSON.parse(trimmed));
+                    return text.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
                 } catch {
                     return trimmed.split('\n').map(line => line.trim()).filter(Boolean).join('\n');
                 }
             }).filter(Boolean).join('\n');
-            return `${header}${tags}\n${content}`;
-        }).join('\n\n').trim();
+            const contentHTML = content.replace(/\n/g, '<br />');
+            return `${header}${tags}<br />${contentHTML}`;
+        }).join('<br /><br />').trim();
     }
 
     // Styled HTML format (Yomitan-style)
@@ -118,7 +125,7 @@ export function buildGlossaryExport(
             }
         }).join('');
 
-        return `<li data-dictionary="${def.dictionaryName.replace(/"/g, '&quot;')}">${headerHTML} ${contentHTML}</li>`;
+        return `<li data-dictionary="${def.dictionaryName.replace(/"/g, '&quot;')}">${headerHTML} <span>${contentHTML}</span></li>`;
     }).join('');
 
     let styleBlock = '';

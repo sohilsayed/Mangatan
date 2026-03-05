@@ -1430,11 +1430,11 @@ ${detail}`,
                                                                                 color: 'white'
                                                                             }}
                                                                         >
-                                                                            <option value="styled">Styled HTML</option>
-                                                                            <option value="plaintext">Plaintext</option>
+                                                                            <option value="styled">Styled</option>
+                                                                            <option value="plain">Plain</option>
                                                                         </select>
                                                                         <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
-                                                                            Choose between rich HTML output (including dictionary CSS) or simple plaintext.
+                                                                            Choose between rich HTML output or simple text.
                                                                         </div>
                                                                     </div>
                                                                 </div>
