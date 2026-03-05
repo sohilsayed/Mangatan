@@ -35,6 +35,7 @@ import AddIcon from '@mui/icons-material/Add';
 import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
 import { CropperModal } from '@/Manatan/components/CropperModal';
 import { notesInfo, calculateUpdatedFields, updateNote } from '@/Manatan/utils/anki';
+import { buildGlossaryExport } from '@/Manatan/utils/glossaryExport';
 
 export const StructuredContent: React.FC<{
     contentString: string;
@@ -327,9 +328,6 @@ const ContentNode: React.FC<{
 const splitTagString = (tag: string): string[] =>
     tag.split(/\s+/).map((t) => t.trim()).filter(Boolean);
 
-const normalizeTagList = (tags: string[]): string[] =>
-    tags.flatMap((tag) => splitTagString(tag));
-
 const AnkiButtons: React.FC<{
     entry: DictionaryResult;
     wordAudioSelection: WordAudioSourceSelection;
@@ -587,34 +585,7 @@ const AnkiButtons: React.FC<{
             );
         };
         const buildGlossaryHtml = (dictionaryName?: string): string => {
-            const glossaryEntries = dictionaryName
-                ? entry.glossary.filter((def) => def.dictionaryName === dictionaryName)
-                : entry.glossary;
-            if (!glossaryEntries.length) return '';
-            return glossaryEntries.map((def, idx) => {
-                const tagsHTML = normalizeTagList(def.tags).map((t) =>
-                    `<span style="display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-right: 6px; color: #fff; background-color: #666; vertical-align: middle;">${t}</span>`
-                );
-                const dictHTML = `<i>(${def.dictionaryName})</i>`;
-                const headerHTML = [...tagsHTML, dictHTML].join(' ');
-                const contentHTML = def.content.map((c) => {
-                    try {
-                        const parsed = JSON.parse(c);
-                        return generateHTML(parsed, def.dictionaryName);
-                    } catch {
-                        return c;
-                    }
-                }).join('');
-                return `
-                    <div style="margin-bottom: 12px; display: flex;">
-                        <div style="flex-shrink: 0; width: 24px; font-weight: bold;">${idx + 1}.</div>
-                        <div style="flex-grow: 1;">
-                            <div style="margin-bottom: 4px;">${headerHTML}</div>
-                            <div>${contentHTML}</div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            return buildGlossaryExport(entry, settings.ankiGlossaryFormat || 'styled', dictionaryName);
         };
         const sentence = dictPopup.context?.sentence || '';
         const needsSentenceFurigana = Object.values(map).includes('Sentence Furigana');

@@ -68,6 +68,8 @@ export type WordAudioSource =
 
 export type WordAudioSourceSelection = WordAudioSource | 'auto';
 
+export type AnkiGlossaryFormat = 'styled' | 'plaintext';
+
 export interface ServerSettingsData { authUsername?: string; authPassword?: string; }
 
 export interface Settings {
@@ -135,6 +137,7 @@ export interface Settings {
     ankiDuplicateAction: 'add' | 'overwrite' | 'prevent';
     ankiCheckDuplicatesAllModels: boolean;
     ankiFieldUpdateModes: Record<string, string>;
+    ankiGlossaryFormat: AnkiGlossaryFormat;
     skipAnkiUpdateConfirm: boolean;
     showHarmonicMeanFreq: boolean;
     ankiFreqMode: string;
@@ -377,6 +380,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ankiDuplicateAction: 'prevent',
     ankiCheckDuplicatesAllModels: false,
     ankiFieldUpdateModes: {},
+    ankiGlossaryFormat: 'styled',
     skipAnkiUpdateConfirm: false,
     showHarmonicMeanFreq: false,
     ankiFreqMode: 'lowest',

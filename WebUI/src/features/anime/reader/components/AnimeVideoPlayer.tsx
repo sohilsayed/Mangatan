@@ -87,6 +87,7 @@ import {
 } from '@/Manatan/utils/pitchAccentExport.ts';
 import { DictionaryResult, WordAudioSource, WordAudioSourceSelection } from '@/Manatan/types.ts';
 import { StructuredContent, DictionaryView } from '@/Manatan/components/DictionaryView.tsx';
+import { buildGlossaryExport } from '@/Manatan/utils/glossaryExport';
 import { PronunciationSection, extractPronunciationData } from '@/Manatan/components/Pronunciation.tsx';
 import { makeToast } from '@/base/utils/Toast.ts';
 import { MediaQuery } from '@/base/utils/MediaQuery.tsx';
@@ -452,120 +453,8 @@ const getTermTagLabel = (tag: unknown): string => {
     return '';
 };
 
-const buildDefinitionHtml = (entry: DictionaryResult, dictionaryName?: string): string => {
-    const styleToString = (style: Record<string, any>): string => {
-        if (!style) {
-            return '';
-        }
-        return Object.entries(style)
-            .map(([key, value]) => `${key.replace(/([A-Z])/g, '-$1').toLowerCase()}:${value}`)
-            .join(';');
-    };
-
-    const generateHTML = (node: any): string => {
-        if (node === null || node === undefined) {
-            return '';
-        }
-        if (typeof node === 'string' || typeof node === 'number') {
-            return String(node);
-        }
-        if (Array.isArray(node)) {
-            return node.map(generateHTML).join('');
-        }
-        if (node.type === 'structured-content') {
-            return generateHTML(node.content);
-        }
-        if (node?.data?.content === 'attribution') {
-            return '';
-        }
-
-        const { tag, content, style, href, data } = node;
-        const customStyle = styleToString(style);
-
-        const dataAttrs = data && typeof data === 'object'
-            ? Object.entries(data)
-                .filter(([_, v]) => typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean')
-                .map(([k, v]) => `data-sc-${k}="${v}"`)
-                .join(' ')
-            : '';
-
-        const classNames = typeof data?.class === 'string' ? data.class.split(/\s+/) : [];
-        const isTagClass = classNames.includes('tag');
-        const tagClassStyle = isTagClass
-            ? 'display: inline-block; padding: 1px 5px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.28); font-size: 0.75em; font-weight: bold; margin-right: 6px; color: #fff; background-color: #666; vertical-align: middle; line-height: 1.2;'
-            : '';
-
-        const dataAttrString = dataAttrs ? ' ' + dataAttrs : '';
-
-        if (tag === 'ul') {
-            return `<ul style="padding-left: 20px; margin: 2px 0; list-style-type: disc;${customStyle}"${dataAttrString}>${generateHTML(content)}</ul>`;
-        }
-        if (tag === 'ol') {
-            return `<ol style="padding-left: 20px; margin: 2px 0; list-style-type: decimal;${customStyle}"${dataAttrString}>${generateHTML(content)}</ol>`;
-        }
-        if (tag === 'li') {
-            return `<li style="${customStyle}"${dataAttrString}>${generateHTML(content)}</li>`;
-        }
-        if (tag === 'table') {
-            return `<table style="border-collapse: collapse; width: 100%; border: 1px solid #777;${customStyle}"${dataAttrString}><tbody>${generateHTML(content)}</tbody></table>`;
-        }
-        if (tag === 'tr') {
-            return `<tr style="${customStyle}"${dataAttrString}>${generateHTML(content)}</tr>`;
-        }
-        if (tag === 'th') {
-            return `<th style="border: 1px solid #777; padding: 2px 8px; text-align: center; font-weight: bold;${customStyle}"${dataAttrString}>${generateHTML(content)}</th>`;
-        }
-        if (tag === 'td') {
-            return `<td style="border: 1px solid #777; padding: 2px 8px; text-align: center;${customStyle}"${dataAttrString}>${generateHTML(content)}</td>`;
-        }
-        if (tag === 'span') {
-            return `<span style="${tagClassStyle}${customStyle}"${dataAttrString}>${generateHTML(content)}</span>`;
-        }
-        if (tag === 'div') {
-            return `<div style="${customStyle}"${dataAttrString}>${generateHTML(content)}</div>`;
-        }
-        if (tag === 'a') {
-            return `<a href="${href}" target="_blank" style="text-decoration: underline;${customStyle}"${dataAttrString}>${generateHTML(content)}</a>`;
-        }
-
-        return generateHTML(content);
-    };
-
-    const glossaryEntries = dictionaryName
-        ? entry.glossary.filter((def) => def.dictionaryName === dictionaryName)
-        : entry.glossary;
-    if (!glossaryEntries.length) {
-        return '';
-    }
-    return glossaryEntries
-        .map((def, idx) => {
-            const tagsHTML = normalizeTagList(def.tags ?? []).map(
-                (tag) =>
-                    `<span style="display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 0.75em; font-weight: bold; margin-right: 6px; color: #fff; background-color: #666; vertical-align: middle;">${tag}</span>`,
-            );
-            const dictHTML = `<i>(${def.dictionaryName})</i>`;
-            const headerHTML = [...tagsHTML, dictHTML].join(' ');
-            const contentHTML = def.content
-                .map((content) => {
-                    try {
-                        const parsed = JSON.parse(content);
-                        return generateHTML(parsed);
-                    } catch {
-                        return content;
-                    }
-                })
-                .join('');
-            return `
-                <div style="margin-bottom: 12px; display: flex;">
-                    <div style="flex-shrink: 0; width: 24px; font-weight: bold;">${idx + 1}.</div>
-                    <div style="flex-grow: 1;">
-                        <div style="margin-bottom: 4px;">${headerHTML}</div>
-                        <div>${contentHTML}</div>
-                    </div>
-                </div>
-            `;
-        })
-        .join('');
+const buildDefinitionHtml = (entry: DictionaryResult, format: 'styled' | 'plaintext', dictionaryName?: string): string => {
+    return buildGlossaryExport(entry, format, dictionaryName);
 };
 
 const getDictionaryEntryKey = (entry: DictionaryResult) => `${entry.headword}::${entry.reading}`;
@@ -2732,7 +2621,7 @@ export const AnimeVideoPlayer = ({
                     fields[ankiField] = generateAnkiPitchAccentCategories(entry);
                 }
                 else if (mapType === 'Definition' || mapType === 'Glossary') {
-                    fields[ankiField] = buildDefinitionHtml(entry);
+                    fields[ankiField] = buildDefinitionHtml(entry, settings.ankiGlossaryFormat || 'styled');
                 }
                 else if (mapType === 'Frequency') fields[ankiField] = getLowestFrequency(entry);
                 else if (mapType === 'Harmonic Frequency') fields[ankiField] = getHarmonicMeanFrequency(entry);
@@ -2745,7 +2634,7 @@ export const AnimeVideoPlayer = ({
                 else if (typeof mapType === 'string') {
                     const name = getSingleGlossaryName(mapType);
                     if (name) {
-                        fields[ankiField] = buildDefinitionHtml(entry, name);
+                        fields[ankiField] = buildDefinitionHtml(entry, settings.ankiGlossaryFormat || 'styled', name);
                     }
                 }
             });
