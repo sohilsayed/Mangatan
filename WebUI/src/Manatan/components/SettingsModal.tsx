@@ -1416,6 +1416,26 @@ ${detail}`,
                                                                         <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
                                                                             Choose which frequency value to export to Anki.
                                                                         </div>
+
+                                                                        <label htmlFor="ankiGlossaryFormat">Glossary Export Format</label>
+                                                                        <select
+                                                                            id="ankiGlossaryFormat"
+                                                                            value={localSettings.ankiGlossaryFormat || 'styled'}
+                                                                            onChange={(e) => handleChange('ankiGlossaryFormat', e.target.value)}
+                                                                            style={{
+                                                                                padding: '6px',
+                                                                                borderRadius: '4px',
+                                                                                border: '1px solid #444',
+                                                                                background: '#222',
+                                                                                color: 'white'
+                                                                            }}
+                                                                        >
+                                                                            <option value="styled">Styled</option>
+                                                                            <option value="plain">Plain</option>
+                                                                        </select>
+                                                                        <div style={{ gridColumn: '1 / -1', fontSize: '0.85em', color: '#aaa' }}>
+                                                                            Choose between rich HTML output or simple text.
+                                                                        </div>
                                                                     </div>
                                                                 </div>
                                                             )}
