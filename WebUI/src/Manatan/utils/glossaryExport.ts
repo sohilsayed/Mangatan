@@ -20,7 +20,9 @@ function generatePlaintextNode(node: any): string {
 
 function generateHTMLNode(node: any, dictionaryName?: string): string {
     if (node === null || node === undefined) return '';
-    if (typeof node === 'string' || typeof node === 'number') return String(node);
+    if (typeof node === 'string' || typeof node === 'number') {
+        return String(node).replace(/\n/g, '<br />');
+    }
     if (Array.isArray(node)) return node.map(n => generateHTMLNode(n, dictionaryName)).join('');
     if (node.type === 'structured-content') return generateHTMLNode(node.content, dictionaryName);
     if (node?.data?.content === 'attribution') return '';
@@ -112,7 +114,7 @@ export function buildGlossaryExport(
             try {
                 return generateHTMLNode(JSON.parse(trimmed), def.dictionaryName);
             } catch {
-                return trimmed;
+                return trimmed.replace(/\n/g, '<br />');
             }
         }).join('');
 
