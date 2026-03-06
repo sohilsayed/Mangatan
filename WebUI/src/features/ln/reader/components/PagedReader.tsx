@@ -13,6 +13,7 @@ import { ReaderNavigationUI } from './ReaderNavigationUI';
 import { ClickZones, getClickZone } from './ClickZones';
 import { ReaderContextMenu } from './ReaderContextMenu';
 import { SelectionHandles } from './SelectionHandles';
+import { LNReaderPage } from './LNReaderPage';
 import { buildTypographyStyles } from '../utils/styles';
 import { handleKeyNavigation, NavigationCallbacks } from '../utils/navigation';
 import { PagedReaderProps } from '../types/reader';
@@ -88,7 +89,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     highlights = [],
     onAddHighlight,
     onRemoveHighlight,
-    css,
 }) => {
     // ========================================================================
     // Refs
@@ -276,56 +276,40 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const layout = useMemo(() => {
         if (dimensions.width === 0 || dimensions.height === 0) return null;
 
-        const gap = 40;
+        const gap =160;
+        const padding = settings.lnPageMargin || 24;
 
-        const marginTop = settings.lnMarginTop ?? 0;
-        const marginBottom = settings.lnMarginBottom ?? 0;
-        const marginLeft = settings.lnMarginLeft ?? 0;
-        const marginRight = settings.lnMarginRight ?? 0;
-
-        // Calculate available space AFTER margins
-        const totalHorizontalMargin = marginLeft + marginRight + safeInsets.left + safeInsets.right;
-        const totalVerticalMargin = marginTop + marginBottom + safeInsets.top + safeInsets.bottom;
-
-        const contentW = dimensions.width - totalHorizontalMargin;
-        const contentH = dimensions.height - totalVerticalMargin;
+        const contentW = dimensions.width - (padding * 2) - safeInsets.left - safeInsets.right;
+        const contentH = dimensions.height - (padding * 2) - safeInsets.top - safeInsets.bottom;
 
         const columnWidth = isVertical ? contentH : contentW;
 
         return {
             gap,
+            padding,
+            width: dimensions.width,
+            height: dimensions.height,
             contentW,
             contentH,
             columnWidth,
-            margins: {
-                top: marginTop,
-                right: marginRight,
-                bottom: marginBottom,
-                left: marginLeft,
-            },
         };
-    }, [
-    dimensions, 
-    settings.lnMarginTop, 
-    settings.lnMarginBottom, 
-    settings.lnMarginLeft, 
-    settings.lnMarginRight,
-    isVertical, 
-    safeInsets.top,
-    safeInsets.right,
-    safeInsets.bottom,
-    safeInsets.left,
-]);
+    }, [dimensions, settings.lnPageMargin, isVertical, safeInsets.bottom, safeInsets.left, safeInsets.right, safeInsets.top]);
 
     const currentHtml = useMemo(
         () => chapters[currentSection] || '',
         [chapters, currentSection]
     );
-  const isImageOnly = useMemo(() => {
-        if (!currentHtml) return false;
-        const text = currentHtml.replace(/<[^>]*>/g, '').trim();
-        return text.length < 5 && /<img|<svg/i.test(currentHtml);
-    }, [currentHtml]);
+
+    const isKorean = useMemo(() => {
+        if (stats?.language === 'ko') return true;
+
+        const koreanFonts = ['KR', 'Malgun', 'Nanum', 'Gothic', 'Noto Sans CJK KR'];
+        if (koreanFonts.some(f => settings.lnFontFamily?.includes(f))) return true;
+
+        const sample = currentHtml.slice(0, 2000);
+        return /[\uAC00-\uD7A3]/.test(sample);
+    }, [stats?.language, settings.lnFontFamily, currentHtml]);
+
     const typographyStyles = useMemo(
         () => buildTypographyStyles(settings, isVertical),
         [settings, isVertical]
@@ -503,26 +487,11 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             setMeasuredPageSize(actualPageSize);
 
             // Calculate total pages
-            if (isImageOnly) {
-    setMeasuredPageSize(layout.columnWidth);
-    setTotalPages(1);
-    setCurrentPage(0);
+            const scrollSize = isVertical
+                ? currentContent.scrollHeight
+                : currentContent.scrollWidth;
 
-    requestAnimationFrame(() => {
-        if (cancelled) return;
-        setIsTransitioning(false);
-        setContentReady(true);
-    });
-
-    return;
-}
-
-// Calculate total pages normally
-const scrollSize = isVertical
-    ? currentContent.scrollHeight
-    : currentContent.scrollWidth;
-
-let calculatedPages = 1;
+            let calculatedPages = 1;
             if (scrollSize > actualColumnWidth) {
                 calculatedPages = Math.max(1, Math.ceil((scrollSize - 1) / actualPageSize));
             }
@@ -1212,7 +1181,7 @@ useEffect(() => {
                 }
             `}</style>
 
-            {/* Outer margin container - STATIC */}
+            {/* Viewport */}
             <div
                 ref={viewportRef}
                 className="paged-viewport"

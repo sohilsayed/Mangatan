@@ -159,11 +159,6 @@ export interface Settings {
     lnShowCharProgress?: boolean;
      lnAutoBookmark?: boolean;         
     lnBookmarkDelay?: number;  
-
-    lnMarginTop?: number;
-    lnMarginBottom?: number;
-    lnMarginLeft?: number;
-    lnMarginRight?: number;
     // Navigation settings
     lnHideNavButtons?: boolean;
     lnEnableClickZones?: boolean;
@@ -406,10 +401,6 @@ export const DEFAULT_SETTINGS: Settings = {
     lnShowCharProgress: false,
     lnAutoBookmark: true,
     lnBookmarkDelay: 15,
-    lnMarginTop: 20,
-    lnMarginBottom: 20,
-    lnMarginLeft: 40,
-    lnMarginRight: 40,
     // Navigation defaults
     lnHideNavButtons: false,
     lnEnableClickZones: true,

@@ -10,7 +10,6 @@ export interface BaseReaderProps {
     settings: Settings;
     isVertical: boolean;
     isRTL: boolean;
-    css?: string; // CSS extracted from EPUB
     initialChapter?: number;
     initialProgress?: {
         sentenceText?: string;

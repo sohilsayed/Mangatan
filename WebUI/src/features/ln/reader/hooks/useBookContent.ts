@@ -9,7 +9,6 @@ export interface BookContent {
     stats: BookStats;
     metadata: LNMetadata;
     chapterFilenames: string[];
-    css?: string;
 }
 
 interface UseBookContentReturn {
@@ -83,7 +82,6 @@ export function useBookContent(bookId: string | undefined): UseBookContentReturn
                     stats: metadata.stats,
                     metadata,
                     chapterFilenames: parsedBook.chapterFilenames || [],
-                    css: parsedBook.css,
                 });
                 setIsLoading(false);
 
