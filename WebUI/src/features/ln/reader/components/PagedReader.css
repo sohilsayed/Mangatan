@@ -30,112 +30,14 @@
 }
 
 /* =====================================================
-   CONTENT
+   CONTENT (Isolated via Shadow DOM in LNReaderPage)
    ===================================================== */
 
 .paged-content {
-    /* Column properties set via inline styles */
-
-    /* Performance optimization for transforms */
+    /* Base styles for the host element */
     will-change: transform;
     backface-visibility: hidden;
     -webkit-backface-visibility: hidden;
-
-    /* Prevent breaking inside paragraphs */
-    orphans: 2;
-    widows: 2;
-}
-
-/* Break avoidance */
-.paged-content p,
-.paged-content blockquote,
-.paged-content figure,
-.paged-content pre {
-    break-inside: avoid;
-}
-
-.paged-content h1,
-.paged-content h2,
-.paged-content h3,
-.paged-content h4,
-.paged-content h5,
-.paged-content h6 {
-    break-after: avoid;
-}
-
-/* =====================================================
-   TYPOGRAPHY
-   ===================================================== */
-
-.paged-content p {
-    margin: 0 0 1em 0;
-}
-
-.paged-content h1,
-.paged-content h2,
-.paged-content h3,
-.paged-content h4 {
-    font-weight: bold;
-    margin: 1.2em 0 0.5em 0;
-}
-
-.paged-content h1 {
-    font-size: 1.4em;
-}
-
-.paged-content h2 {
-    font-size: 1.25em;
-}
-
-.paged-content h3 {
-    font-size: 1.15em;
-}
-
-.paged-content a {
-    color: inherit;
-    text-decoration: underline;
-}
-
-.paged-content ruby {
-    ruby-align: center;
-}
-
-.paged-content rt {
-    font-size: 0.5em;
-}
-
-.paged-content blockquote {
-    margin: 1em 0;
-    padding-left: 1em;
-    border-left: 2px solid currentColor;
-    opacity: 0.85;
-}
-
-/* =====================================================
-   IMAGES
-   ===================================================== */
-
-.paged-content img,
-.paged-content svg,
-.paged-content figure {
-    max-width: 100vw !important;
-    max-height: calc(100vh - 120px);
-    width: auto;
-    height: auto;
-    display: block;
-    margin: 0.5em auto;
-    object-fit: contain;
-    break-inside: avoid;
-
-    /* Prevent image transforms from looking blurry */
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-}
-
-/* Ensure SVG images inside SVGs scale correctly */
-.paged-content svg image {
-    width: 100%;
-    height: 100%;
 }
 
 /* =====================================================

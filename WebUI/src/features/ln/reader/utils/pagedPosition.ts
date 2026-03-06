@@ -40,8 +40,16 @@ export function detectVisibleBlockPaged(
     chapterIndex: number,
     blockMaps?: BlockIndexMap[]
 ): DetectedBlock | null {
-    // Get all blocks
-    const allBlocks = container.querySelectorAll('[data-block-id]');
+    // Get all blocks, piercing shadow DOM if necessary
+    let allBlocks: NodeListOf<Element> | Element[] = container.querySelectorAll('[data-block-id]');
+
+    if (allBlocks.length === 0) {
+        // Try piercing shadow DOM of children
+        const host = Array.from(container.children).find(c => c.shadowRoot);
+        if (host && host.shadowRoot) {
+            allBlocks = Array.from(host.shadowRoot.querySelectorAll('[data-block-id]'));
+        }
+    }
 
     if (allBlocks.length === 0) {
         console.warn('[pagedPosition] No blocks found in container');
@@ -63,18 +71,19 @@ export function detectVisibleBlockPaged(
         let viewportEnd: number;
 
         if (isVertical) {
-            // Vertical mode: transforms are translateY
-            blockPosition = rect.top - containerRect.top + scrollOffset;
-            viewportStart = scrollOffset;
-            viewportEnd = scrollOffset + containerRect.height;
+            // Vertical mode (Japanese RTL): transforms are translateX (positive)
+            // The content grows to the left, but we use positive translateX to reveal it
+            blockPosition = rect.left - containerRect.left - scrollOffset;
+            viewportStart = -scrollOffset;
+            viewportEnd = -scrollOffset + containerRect.width;
         } else {
-            // Horizontal mode: transforms are translateX
+            // Horizontal mode: transforms are translateX (negative)
             blockPosition = rect.left - containerRect.left + scrollOffset;
             viewportStart = scrollOffset;
             viewportEnd = scrollOffset + containerRect.width;
         }
 
-        const blockSize = isVertical ? rect.height : rect.width;
+        const blockSize = rect.width;
         const blockEnd = blockPosition + blockSize;
 
         // Check if block is visible on current page
@@ -110,10 +119,10 @@ export function detectVisibleBlockPaged(
         let readRatio: number;
 
         if (isVertical) {
-            const scrollTop = pageIndex * pageSize;
-            const blockTop = blockRect.top - containerRect.top + scrollTop;
-            const readAmount = scrollTop - blockTop;
-            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.height));
+            const scrollLeft = pageIndex * pageSize;
+            const blockRight = blockRect.right - containerRect.right + scrollLeft;
+            const readAmount = scrollLeft - blockRight;
+            readRatio = Math.max(0, Math.min(1, readAmount / blockRect.width));
         } else {
             const scrollLeft = pageIndex * pageSize;
             const blockLeft = blockRect.left - containerRect.left + scrollLeft;
@@ -160,7 +169,16 @@ export function findPageForBlock(
     pageSize: number,
     isVertical: boolean
 ): number {
-    const block = container.querySelector(`[data-block-id="${blockId}"]`);
+    let block = container.querySelector(`[data-block-id="${blockId}"]`);
+
+    if (!block) {
+        // Try piercing shadow DOM
+        const host = Array.from(container.children).find(c => c.shadowRoot);
+        if (host && host.shadowRoot) {
+            block = host.shadowRoot.querySelector(`[data-block-id="${blockId}"]`);
+        }
+    }
+
     if (!block) return 0;
 
     const containerRect = container.getBoundingClientRect();
@@ -170,7 +188,8 @@ export function findPageForBlock(
     let blockPosition: number;
 
     if (isVertical) {
-        blockPosition = blockRect.top - containerRect.top + (container.scrollTop || 0);
+        // Vertical-RL: position from right edge
+        blockPosition = containerRect.right - blockRect.right + (container.scrollLeft || 0);
     } else {
         blockPosition = blockRect.left - containerRect.left + (container.scrollLeft || 0);
     }
@@ -188,7 +207,15 @@ export function restoreToBlockPaged(
     pageSize: number,
     isVertical: boolean
 ): { pageIndex: number; success: boolean } {
-    const block = container.querySelector(`[data-block-id="${blockId}"]`);
+    let block = container.querySelector(`[data-block-id="${blockId}"]`);
+
+    if (!block) {
+        // Try piercing shadow DOM
+        const host = Array.from(container.children).find(c => c.shadowRoot);
+        if (host && host.shadowRoot) {
+            block = host.shadowRoot.querySelector(`[data-block-id="${blockId}"]`);
+        }
+    }
 
     if (!block) {
         console.warn('[pagedPosition] Block not found for restoration:', blockId);

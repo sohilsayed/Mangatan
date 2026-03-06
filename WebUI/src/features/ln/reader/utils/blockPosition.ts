@@ -181,11 +181,21 @@ export function getTextPositionAtPoint(
 ): { node: Node; offset: number } | null {
     let range: Range | null = null;
 
-    if (document.caretRangeFromPoint) {
-        range = document.caretRangeFromPoint(x, y);
+    // Pierce Shadow DOM
+    let target = document.elementFromPoint(x, y);
+    let root: Document | ShadowRoot = document;
+    while (target && target.shadowRoot) {
+        root = target.shadowRoot;
+        const nextTarget = root.elementFromPoint(x, y);
+        if (nextTarget === target || !nextTarget) break;
+        target = nextTarget;
     }
-    else if ((document as any).caretPositionFromPoint) {
-        const pos = (document as any).caretPositionFromPoint(x, y);
+
+    if ((root as any).caretRangeFromPoint) {
+        range = (root as any).caretRangeFromPoint(x, y);
+    }
+    else if ((root as any).caretPositionFromPoint) {
+        const pos = (root as any).caretPositionFromPoint(x, y);
         if (pos?.offsetNode) {
             range = document.createRange();
             range.setStart(pos.offsetNode, pos.offset);

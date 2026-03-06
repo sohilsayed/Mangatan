@@ -40,22 +40,8 @@
    VERTICAL MODE
    ===================================================== */
 
-.click-zone-visual.vertical.prev {
-    right: 0;
-}
-
-.click-zone-visual.vertical.next {
-    left: 0;
-}
+/* Base positions handled by inline styles in ClickZones.tsx */
 
 /* =====================================================
    HORIZONTAL MODE
    ===================================================== */
-
-.click-zone-visual.horizontal.prev {
-    top: 0;
-}
-
-.click-zone-visual.horizontal.next {
-    bottom: 0;
-}

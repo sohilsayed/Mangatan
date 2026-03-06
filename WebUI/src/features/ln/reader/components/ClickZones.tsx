@@ -50,10 +50,16 @@ export const ClickZones: React.FC<ClickZonesProps> = ({
         const offset = (100 - coverageNum) / 2;
 
         if (zonesAreVertical) {
-            // Vertical zones: prev on right, next on left
-            const baseStyle: React.CSSProperties = isPrev 
-                ? { right: 0 } 
-                : { left: 0 };
+            // Vertical zones
+            let baseStyle: React.CSSProperties;
+
+            if (isVertical) {
+                // Vertical text (Japanese RTL): next on left, prev on right
+                baseStyle = isPrev ? { right: 0 } : { left: 0 };
+            } else {
+                // Horizontal text: next on right, prev on left
+                baseStyle = isPrev ? { left: 0 } : { right: 0 };
+            }
 
             if (zonePosition === 'full') {
                 // Full edge: span entire height
@@ -168,8 +174,15 @@ export function getClickZone(
         const inZoneY = relY >= zoneStartY && relY <= zoneEndY;
         if (!inZoneY) return null;
 
-        if (relX <= size) return 'next';
-        if (relX >= 1 - size) return 'prev';
+        if (isVertical) {
+            // Vertical mode (Japanese RTL): next on left, prev on right
+            if (relX <= size) return 'next';
+            if (relX >= 1 - size) return 'prev';
+        } else {
+            // Horizontal mode: next on right, prev on left
+            if (relX <= size) return 'prev';
+            if (relX >= 1 - size) return 'next';
+        }
     } else {
        
         let zoneStartX = 0;

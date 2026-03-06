@@ -337,16 +337,29 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             ? measuredPageSize
             : (layout?.columnWidth || 0) + (layout?.gap || 80);
         const pageOffset = Math.round(currentPage * effectivePageSize);
-        return isVertical
-            ? `translateY(-${pageOffset}px)`
-            : `translateX(-${pageOffset}px)`;
+
+        // For vertical text, we actually want horizontal paging (Japanese style)
+        // if the columns are horizontal.
+        if (isVertical) {
+             return `translateX(${pageOffset}px)`; // Positive for RTL
+        }
+
+        return `translateX(-${pageOffset}px)`;
     }, [currentPage, measuredPageSize, layout?.columnWidth, layout?.gap, isVertical]);
 
-    // Memoized content style to prevent re-renders on UI toggle
-    const contentStyle = useMemo(() => {
+    // Styles for the host element (transform/transition)
+    const hostStyle = useMemo(() => ({
+        transform,
+        transition: settings.lnDisableAnimations ? 'none' : 'transform 0.3s ease-out',
+        willChange: 'transform',
+        width: isVertical ? 'auto' : '100%',
+        height: isVertical ? '100%' : 'auto',
+    }), [transform, settings.lnDisableAnimations, isVertical]);
+
+    // Styles for the internal content (typography/columns)
+    const innerContentStyle = useMemo(() => {
         if (!layout) return {};
         
-        // Calculate text color with brightness
         const brightness = settings.lnTextBrightness ?? 100;
         const textColor = brightness === 100 
             ? theme.fg 
@@ -361,18 +374,13 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             boxSizing: 'border-box',
             overflowWrap: 'break-word',
             wordBreak: 'break-word',
-            transform: transform,
-            transition: settings.lnDisableAnimations
-                ? 'none'
-                : 'transform 0.3s ease-out',
-            willChange: 'transform',
             ...(isVertical
                 ? {
                     writingMode: 'vertical-rl',
                     textOrientation: 'mixed',
-                    width: `${layout.contentW}px`,
-                    height: 'auto',
-                    minHeight: `${layout.contentH}px`,
+                    height: `${layout.contentH}px`,
+                    width: 'auto',
+                    minWidth: `${layout.contentW}px`,
                 }
                 : {
                     height: `${layout.contentH}px`,
@@ -381,15 +389,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 }
             ),
         };
-    }, [
-        typographyStyles,
-        layout,
-        transform,
-        settings.lnDisableAnimations,
-        settings.lnTextBrightness,
-        theme.fg,
-        isVertical
-    ]);
+    }, [typographyStyles, layout, settings.lnTextBrightness, theme.fg, isVertical]);
 
     // ========================================================================
     // Register Save Function with Parent
@@ -740,10 +740,8 @@ let calculatedPages = 1;
             const blockRect = blockEl.getBoundingClientRect();
             const contentRect = contentRef.current.getBoundingClientRect();
 
-            // Match your existing logic (vertical uses translateY, horizontal uses translateX)
-            const offset = isVertical
-                ? (blockRect.top - contentRect.top)
-                : (blockRect.left - contentRect.left);
+            // Both horizontal and vertical-rl now use horizontal offsets for paging
+            const offset = blockRect.left - contentRect.left;
 
             const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
             const clamped = Math.max(0, Math.min(targetPage, totalPages - 1));
@@ -807,12 +805,22 @@ let calculatedPages = 1;
     const goNext = useCallback(() => {
         if (!contentReady || isTransitioning) return;
 
-        if (currentPage < totalPages - 1) {
-            goToPage(currentPage + 1);
-        } else if (currentSection < chapters.length - 1) {
-            goToSection(currentSection + 1, false);
+        if (isVertical) {
+            // Japanese RTL: "Next" goes to higher page index (revealing content to the left)
+            if (currentPage < totalPages - 1) {
+                goToPage(currentPage + 1);
+            } else if (currentSection < chapters.length - 1) {
+                goToSection(currentSection + 1, false);
+            }
+        } else {
+            // Horizontal: Next goes to higher page index
+            if (currentPage < totalPages - 1) {
+                goToPage(currentPage + 1);
+            } else if (currentSection < chapters.length - 1) {
+                goToSection(currentSection + 1, false);
+            }
         }
-    }, [currentPage, totalPages, currentSection, chapters.length, goToPage, goToSection, contentReady, isTransitioning]);
+    }, [currentPage, totalPages, currentSection, chapters.length, goToPage, goToSection, contentReady, isTransitioning, isVertical]);
 
     const goPrev = useCallback(() => {
         if (!contentReady || isTransitioning) return;
@@ -1048,9 +1056,7 @@ let calculatedPages = 1;
                         if (element && contentRef.current && measuredPageSize > 0) {
                             const rect = element.getBoundingClientRect();
                             const contentRect = contentRef.current.getBoundingClientRect();
-                            const offset = isVertical
-                                ? rect.top - contentRect.top
-                                : rect.left - contentRect.left;
+                            const offset = rect.left - contentRect.left;
                             const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
                             goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
                         }
@@ -1065,9 +1071,7 @@ let calculatedPages = 1;
                             if (element && contentRef.current && measuredPageSize > 0) {
                                 const rect = element.getBoundingClientRect();
                                 const contentRect = contentRef.current.getBoundingClientRect();
-                                const offset = isVertical
-                                    ? rect.top - contentRect.top
-                                    : rect.left - contentRect.left;
+                                const offset = rect.left - contentRect.left;
                                 const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
                                 goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
                             }
@@ -1210,37 +1214,36 @@ useEffect(() => {
 
             {/* Outer margin container - STATIC */}
             <div
-    className="paged-margin-container"
-    style={{
-        position: 'absolute',
-        inset: 0,
-        overflow: 'hidden',
-        paddingTop: `${(isImageOnly ? 0 : layout?.margins.top ?? 0) + safeInsets.top}px`,
-                    paddingRight: `${(isImageOnly ? 0 : layout?.margins.right ?? 0) + safeInsets.right}px`,
-                    paddingBottom: `${(isImageOnly ? 0 : layout?.margins.bottom ?? 0) + safeInsets.bottom}px`,
-                    paddingLeft: `${(isImageOnly ? 0 : layout?.margins.left ?? 0) + safeInsets.left}px`,
-    }}
->
-                {/* Viewport  */}
-                <div
-                    ref={viewportRef}
-                    className="paged-viewport"
-                    onClick={handleContentClick}
-                    onPointerDown={handlePointerDown}
-                    onPointerMove={handlePointerMove}
-                    onTouchStart={handleTouchStart}
-                    onTouchEnd={handleTouchEnd}
-                >
-                    {/* Content */}
-                    <div
-                        ref={contentRef}
- className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''} ${isImageOnly ? 'image-only-chapter' : ''}`}
-                         style={contentStyle}
-                    >
-                         {css && <style>{`@scope { \n${css}\n }`}</style>}
-                        <div dangerouslySetInnerHTML={{ __html: currentHtml }} />
-                    </div>
-                </div>
+                ref={viewportRef}
+                className="paged-viewport"
+                style={{
+                    position: 'absolute',
+                    inset: 0,
+                    overflow: 'hidden',
+                    clipPath: 'inset(0px)',
+                    paddingTop: `${layout.padding + safeInsets.top}px`,
+                    paddingRight: `${layout.padding + safeInsets.right}px`,
+                    paddingBottom: `${layout.padding + safeInsets.bottom}px`,
+                    paddingLeft: `${layout.padding + safeInsets.left}px`,
+                }}
+                onClick={handleContentClick}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+            >
+                {/* Content */}
+                <LNReaderPage
+                    html={currentHtml}
+                    theme={settings.lnTheme}
+                    className={`paged-content ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                    lang={isKorean ? "ko" : undefined}
+                    style={hostStyle}
+                    contentStyle={innerContentStyle}
+                    onReady={(c) => {
+                        (contentRef as any).current = c;
+                    }}
+                />
             </div>
 
             {/* Loading Overlay */}
