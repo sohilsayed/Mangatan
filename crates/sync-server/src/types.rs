@@ -267,18 +267,23 @@ pub struct BlockIndexMap {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct BookStats {
+    #[serde(default)]
     pub chapter_lengths: Vec<i32>,
+    #[serde(default)]
     pub total_length: i32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub block_maps: Option<Vec<BlockIndexMap>>,
 }
 
 /// Table of contents item
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct TocItem {
+    #[serde(default)]
     pub label: String,
+    #[serde(default)]
     pub href: String,
+    #[serde(default)]
     #[serde(alias = "chapterIndex")]
     pub chapter_index: i32,
 }
