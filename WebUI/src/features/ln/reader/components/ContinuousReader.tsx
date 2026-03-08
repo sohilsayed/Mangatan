@@ -429,8 +429,11 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 console.log('[ContinuousReader] Loading target chapter immediately:', targetChapter);
                 loadChapter(targetChapter, true);
                 
+                // Ensure the window is updated to include the target chapter
+                setCurrentChapter(targetChapter);
+
                 // Wait for React to render the chapter into DOM
-                await new Promise(resolve => setTimeout(resolve, 50));
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
 
             // Step 2: Verify blocks exist in DOM
@@ -517,6 +520,9 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             // Disable restoration temporarily so we don't trigger it
             hasRestoredRef.current = true;
 
+            // Set save lock IMMEDIATELY to prevent overwriting from current scroll position
+            saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
+
             // Scroll to block
             block.scrollIntoView({ behavior: 'auto', block: 'start' });
 
@@ -533,16 +539,17 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             // Update chapter if changed
             if (chapterIndex !== currentChapter) {
                 setCurrentChapter(chapterIndex);
+                loadChaptersAround(chapterIndex);
             }
 
             // Mark restoration complete
             setRestorationComplete(true);
 
-            // Set save lock to prevent overwriting
-            saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
-
             return true;
         };
+
+        // Force load the target chapter immediately
+        loadChapter(chapterIndex, true);
 
         // Check if chapter is already loaded (has blocks in DOM)
         const existingBlocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
@@ -551,12 +558,11 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             // Chapter already loaded, try to scroll immediately
             doScroll();
         } else {
-            // Chapter not loaded yet, load it first
-            console.log('[ContinuousReader] scrollToBlock: loading chapter:', chapterIndex);
-            loadChaptersAround(chapterIndex);
+            // Chapter not loaded yet, wait for it
+            console.log('[ContinuousReader] scrollToBlock: waiting for chapter:', chapterIndex);
             
             // Wait for chapter to load and render
-            const maxAttempts = 10;
+            const maxAttempts = 20; // Increased attempts
             let attempts = 0;
             
             const tryScroll = () => {
@@ -564,19 +570,19 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 const blocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
                 
                 if (blocks.length > 0) {
-                    console.log('[ContinuousReader] scrollToBlock: chapter loaded after', attempts * 100, 'ms');
-                    doScroll();
+                    console.log('[ContinuousReader] scrollToBlock: chapter loaded after', attempts * 50, 'ms');
+                    // Add a tiny delay to ensure layout is ready
+                    setTimeout(doScroll, 20);
                 } else if (attempts < maxAttempts) {
-                    console.log('[ContinuousReader] scrollToBlock: retrying, attempt:', attempts);
-                    setTimeout(tryScroll, 100);
+                    setTimeout(tryScroll, 50);
                 } else {
-                    console.log('[ContinuousReader] scrollToBlock: failed to load chapter after', maxAttempts * 100, 'ms');
+                    console.log('[ContinuousReader] scrollToBlock: failed to load chapter after', maxAttempts * 50, 'ms');
                 }
             };
             
-            setTimeout(tryScroll, 100);
+            setTimeout(tryScroll, 50);
         }
-    }, [isVertical, isRTL, currentChapter, loadChaptersAround]);
+    }, [isVertical, isRTL, currentChapter, loadChaptersAround, loadChapter]);
 
     const scrollToChapter = useCallback((chapterIndex: number) => {
         const container = containerRef.current;
@@ -594,21 +600,25 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             // Disable restoration temporarily
             hasRestoredRef.current = true;
 
+            // Set save lock
+            saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
+
             // Scroll to first block
             (blocks[0] as HTMLElement).scrollIntoView({ behavior: 'auto', block: 'start' });
 
             // Update state
             setCurrentChapter(chapterIndex);
             currentBlockIdRef.current = blocks[0].getAttribute('data-block-id');
+            loadChaptersAround(chapterIndex);
 
             // Mark restoration complete
             setRestorationComplete(true);
 
-            // Set save lock
-            saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
-
             return true;
         };
+
+        // Force load the target chapter immediately
+        loadChapter(chapterIndex, true);
 
         // Check if chapter is already loaded
         const existingBlocks = container.querySelectorAll(`[data-block-id^="ch${chapterIndex}-b"]`);
@@ -616,29 +626,27 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         if (existingBlocks.length > 0) {
             doScroll();
         } else {
-            // Chapter not loaded, load it first
-            console.log('[ContinuousReader] scrollToChapter: loading chapter:', chapterIndex);
-            loadChaptersAround(chapterIndex);
+            // Chapter not loaded, wait for it
+            console.log('[ContinuousReader] scrollToChapter: waiting for chapter:', chapterIndex);
             
             // Wait for chapter to load with retry logic
-            const maxAttempts = 10;
+            const maxAttempts = 20;
             let attempts = 0;
             
             const tryScroll = () => {
                 attempts++;
                 if (doScroll()) {
-                    console.log('[ContinuousReader] scrollToChapter: chapter loaded after', attempts * 100, 'ms');
+                    console.log('[ContinuousReader] scrollToChapter: chapter loaded after', attempts * 50, 'ms');
                 } else if (attempts < maxAttempts) {
-                    console.log('[ContinuousReader] scrollToChapter: retrying, attempt:', attempts);
-                    setTimeout(tryScroll, 100);
+                    setTimeout(tryScroll, 50);
                 } else {
-                    console.log('[ContinuousReader] scrollToChapter: failed to load chapter after', maxAttempts * 100, 'ms');
+                    console.log('[ContinuousReader] scrollToChapter: failed to load chapter after', maxAttempts * 50, 'ms');
                 }
             };
             
-            setTimeout(tryScroll, 100);
+            setTimeout(tryScroll, 50);
         }
-    }, [loadChaptersAround]);
+    }, [loadChaptersAround, loadChapter]);
 
     // Expose navigation functions via ref
     useEffect(() => {
@@ -897,47 +905,81 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             direction: 'ltr',
             fontFamily,
             fontWeight: settings.lnFontWeight || 400,
+            opacity: contentLoaded ? 1 : 0,
+            transition: 'opacity 0.2s ease-in-out',
         };
-    }, [isVertical, settings.lnFontFamily, settings.lnSecondaryFontFamily, settings.lnFontWeight]);
+    }, [isVertical, settings.lnFontFamily, settings.lnSecondaryFontFamily, settings.lnFontWeight, contentLoaded]);
 
     const handleUpdateSettings = onUpdateSettings ?? (() => {});
 
+    // Only render chapters that are in the loaded window
+    const visibleChapterIndices = useMemo(() => {
+        const windowSize = 2; // Keep it tight for performance
+        const start = Math.max(0, currentChapter - windowSize);
+        const end = Math.min(chapters.length - 1, currentChapter + windowSize);
+        const indices = [];
+        for (let i = start; i <= end; i++) {
+            indices.push(i);
+        }
+        return indices;
+    }, [currentChapter, chapters.length]);
+
+    const safeInsets = useMemo(() => ({
+        top: safeAreaInsetsPx?.top ?? (safeAreaTopInset ? parseInt(safeAreaTopInset, 10) : 0),
+        right: safeAreaInsetsPx?.right ?? 0,
+        bottom: safeAreaInsetsPx?.bottom ?? 0,
+        left: safeAreaInsetsPx?.left ?? 0,
+    }), [safeAreaInsetsPx, safeAreaTopInset]);
+
     return (
         <div
-    className={`continuous-reader-wrapper ${isRTL ? 'rtl-mode' : 'ltr-mode'}`}
-    style={wrapperStyle}
-    data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
->
+            className={`continuous-reader-wrapper ${isRTL ? 'rtl-mode' : 'ltr-mode'}`}
+            style={wrapperStyle}
+            data-dark-mode={settings.lnTheme === 'dark' || settings.lnTheme === 'black'}
+        >
             <div
-                ref={containerRef}
-                className={`continuous-reader-container ${isVertical ? 'vertical' : 'horizontal'}`}
+                className="continuous-margin-container"
                 style={{
-                    ...containerStyles,
-                    paddingTop: safeAreaTopInset ?? `${safeAreaInsetsPx?.top ?? 0}px`,
-                    paddingRight: `${safeAreaInsetsPx?.right ?? 0}px`,
-                    paddingBottom: `${safeAreaInsetsPx?.bottom ?? 0}px`,
-                    paddingLeft: `${safeAreaInsetsPx?.left ?? 0}px`,
-                    boxSizing: 'border-box',
+                    position: 'absolute',
+                    inset: 0,
+                    overflow: 'hidden',
+                    paddingTop: `${(settings.lnMarginTop ?? 0) + safeInsets.top}px`,
+                    paddingRight: `${(settings.lnMarginRight ?? 0) + safeInsets.right}px`,
+                    paddingBottom: `${(settings.lnMarginBottom ?? 0) + safeInsets.bottom}px`,
+                    paddingLeft: `${(settings.lnMarginLeft ?? 0) + safeInsets.left}px`,
                 }}
-                onClick={handleContentClick}
-                onPointerDown={handlePointerDown}
-                onPointerMove={handlePointerMove}
             >
                 <div
-                    ref={contentRef}
-                    className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
-                    style={contentStyle}
+                    ref={containerRef}
+                    className={`continuous-reader-container ${isVertical ? 'vertical' : 'horizontal'}`}
+                    style={{
+                        ...containerStyles,
+                        width: '100%',
+                        height: '100%',
+                    }}
+                    onClick={handleContentClick}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
                 >
-                    {chapters.map((_, index) => (
-                        <ChapterBlock
-                            key={index}
-                            html={getChapterHtml(index)}
-                            index={index}
-                            isLoading={loadingState.get(index) || false}
-                            isVertical={isVertical}
-                            settings={settings}
-                        />
-                    ))}
+                    <div
+                        ref={contentRef}
+                        className={`continuous-content ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''}`}
+                        style={contentStyle}
+                    >
+                        {/* Apply EPUB CSS with @scope */}
+                        {css && <style>{`@scope { \n${css}\n }`}</style>}
+
+                        {visibleChapterIndices.map((index) => (
+                            <ChapterBlock
+                                key={index}
+                                html={getChapterHtml(index)}
+                                index={index}
+                                isLoading={loadingState.get(index) || false}
+                                isVertical={isVertical}
+                                settings={settings}
+                            />
+                        ))}
+                    </div>
                 </div>
             </div>
 
