@@ -23,7 +23,7 @@ import {
     calculateProgress,
     createSaveScheduler
 } from '../utils/readerSave';
-import { restoreReadingPosition, applyLocalOffset } from '../utils/restoration';
+import { restoreReadingPosition, applyLocalOffset, RestorationPosition } from '../utils/restoration';
 import { ContinuousReaderProps } from '../types/reader';
 import './ContinuousReader.css';
 
@@ -101,6 +101,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     const saveLockUntilRef = useRef<number>(0);
     const currentBlockIdRef = useRef<string | null>(null);
     const currentBlockElementRef = useRef<Element | null>(null);
+    const restoreAnchorRef = useRef<RestorationPosition | null>(null);
 
     // Drag detection
     const isDraggingRef = useRef(false);
@@ -329,15 +330,8 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // ========================================================================
 
     const handleActiveBlockChange = useCallback((blockId: string, element: Element) => {
-        // GUARD: Don't save if restoration state is not ACTIVE
+        // GUARD: Don't track if restoration state is not ACTIVE
         if (restorationStateRef.current !== 'ACTIVE') {
-            console.log('[BlockTracker] Not active state, ignoring:', restorationStateRef.current);
-            return;
-        }
-        
-        // GUARD: Enforce save lock
-        if (Date.now() < saveLockUntilRef.current) {
-            console.log('[BlockTracker] Save locked, ignoring block change');
             return;
         }
         
@@ -352,21 +346,22 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         const position = calculatePositionFromBlock(blockId, element);
         if (!position) return;
 
+        // UI Updates (Current progress, position, chapter)
         setCurrentProgress(position.totalProgress);
         setCurrentPosition(position);
-        saveSchedulerRef.current.scheduleSave(position);
 
         // Update chapter if changed
         const chapterMatch = blockId.match(/ch(\d+)-/);
         if (chapterMatch) {
             const chapterIndex = parseInt(chapterMatch[1], 10);
             if (chapterIndex !== currentChapter) {
+                console.log('[ContinuousReader] Active chapter changed:', chapterIndex);
                 setCurrentChapter(chapterIndex);
                 loadChaptersAround(chapterIndex);
             }
         }
 
-        // Notify parent
+        // Notify parent (for TOC updates, etc.) - HIGHEST PRIORITY
         onPositionUpdateRef.current?.({
             chapterIndex: position.chapterIndex,
             chapterCharOffset: position.chapterCharOffset,
@@ -374,6 +369,13 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             totalProgress: position.totalProgress,
             blockId: position.blockId,
         });
+
+        // Save Scheduling (Only if not locked)
+        if (Date.now() >= saveLockUntilRef.current) {
+            saveSchedulerRef.current.scheduleSave(position);
+        } else {
+            console.log('[BlockTracker] Save locked, reporting position but skipping save');
+        }
     }, [calculatePositionFromBlock, currentChapter, loadChaptersAround]);
 
     // ========================================================================
@@ -395,8 +397,8 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         let isCancelled = false;
 
         const performRestoration = async () => {
-            // Skip if already restored or no position to restore
-            if (restorationStateRef.current === 'ACTIVE') return;
+            // Skip if already restored, navigating, or no position to restore
+            if (restorationStateRef.current === 'ACTIVE' || restorationStateRef.current === 'NAVIGATING') return;
             if (!initialProgress?.blockId) {
                 restorationStateRef.current = 'ACTIVE';
                 setRestorationComplete(true);
@@ -484,15 +486,24 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             (lastProgress?.blockId !== initialProgress?.blockId) ||
             (lastProgress?.chapterIndex !== initialProgress?.chapterIndex);
         
-        if (progressChanged && initialProgress?.blockId && restorationStateRef.current === 'ACTIVE') {
-            console.log('[ContinuousReader] InitialProgress changed, navigating to new position');
+        // Skip if this update matches our current internal state (internal scroll)
+        const isInternalUpdate = initialProgress?.blockId === currentBlockIdRef.current;
+
+        if (progressChanged && initialProgress?.blockId && !isInternalUpdate) {
+            console.log('[ContinuousReader] External position change, navigating:', initialProgress.blockId);
             
+            // Update currentChapter to ensure the correct window of chapters is rendered
+            if (initialProgress.chapterIndex !== undefined && initialProgress.chapterIndex !== currentChapter) {
+                setCurrentChapter(initialProgress.chapterIndex);
+                loadChaptersAround(initialProgress.chapterIndex);
+            }
+
             // Use scrollToBlock for navigation
             scrollToBlock(initialProgress.blockId, initialProgress.blockLocalOffset);
         }
         
         lastInitialProgressRef.current = initialProgress;
-    }, [initialProgress?.blockId, initialProgress?.chapterIndex, initialProgress?.blockLocalOffset]);
+    }, [initialProgress, currentChapter, scrollToBlock, loadChaptersAround]);
 
     // ========================================================================
     // Block Tracker Setup
@@ -577,8 +588,10 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         restorationStateRef.current = 'NAVIGATING';
         saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
 
-        // Update chapter state
-        setCurrentChapter(chapterIndex);
+        // Update chapter state (Sync with TOC)
+        if (chapterIndex !== currentChapter) {
+            setCurrentChapter(chapterIndex);
+        }
 
         // Load chapter with priority
         loadChapter(chapterIndex, true);
@@ -597,6 +610,18 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
 
             currentBlockIdRef.current = blockId;
             loadChaptersAround(chapterIndex);
+
+            // Notify parent of navigation success (Sync with TOC)
+            const position = calculatePositionFromBlock(blockId, element);
+            if (position) {
+                onPositionUpdateRef.current?.({
+                    chapterIndex: position.chapterIndex,
+                    chapterCharOffset: position.chapterCharOffset,
+                    sentenceText: position.sentenceText || '',
+                    totalProgress: position.totalProgress,
+                    blockId: position.blockId,
+                });
+            }
 
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
@@ -646,7 +671,9 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
 
         // Update state
-        setCurrentChapter(chapterIndex);
+        if (chapterIndex !== currentChapter) {
+            setCurrentChapter(chapterIndex);
+        }
 
         // Load chapter
         loadChapter(chapterIndex, true);
@@ -659,8 +686,23 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 block: 'start' 
             });
             
-            currentBlockIdRef.current = blocks[0].getAttribute('data-block-id');
+            const blockId = blocks[0].getAttribute('data-block-id');
+            currentBlockIdRef.current = blockId;
             loadChaptersAround(chapterIndex);
+
+            // Notify parent of navigation success (Sync with TOC)
+            if (blockId) {
+                const position = calculatePositionFromBlock(blockId, blocks[0]);
+                if (position) {
+                    onPositionUpdateRef.current?.({
+                        chapterIndex: position.chapterIndex,
+                        chapterCharOffset: position.chapterCharOffset,
+                        sentenceText: position.sentenceText || '',
+                        totalProgress: position.totalProgress,
+                        blockId: position.blockId,
+                    });
+                }
+            }
             
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
