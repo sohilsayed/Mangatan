@@ -195,6 +195,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     highlights = [],
     onAddHighlight,
     onRemoveHighlight,
+    navigationRef,
     css,
 }) => {
     // ========================================================================
@@ -992,6 +993,62 @@ const transform = useMemo(() => {
             goToSection(currentSection - 1, true);
         }
     }, [currentPage, currentSection, goToPage, goToSection, contentReady, isTransitioning]);
+
+    const scrollToBlock = useCallback((blockId: string, blockLocalOffset?: number) => {
+        const chapterMatch = blockId.match(/ch(\d+)-/);
+        const chapterIndex = chapterMatch ? parseInt(chapterMatch[1], 10) : currentSection;
+
+        console.log('[PagedReader] scrollToBlock:', blockId, 'offset:', blockLocalOffset, 'chapter:', chapterIndex);
+
+        if (chapterIndex !== currentSection) {
+            // Set anchor for the new chapter
+            restoreAnchorRef.current = {
+                blockId,
+                chapterIndex,
+                chapterCharOffset: undefined,
+            };
+            goToSection(chapterIndex, false);
+        } else {
+            // Already in correct chapter, try to find block
+            const content = contentRef.current;
+            if (!content || !measuredPageSize) return;
+
+            const blockEl = content.querySelector(`[data-block-id="${blockId}"]`) as HTMLElement;
+            if (blockEl) {
+                const blockRect = blockEl.getBoundingClientRect();
+                const contentRect = content.getBoundingClientRect();
+                const offset = isVertical ? (blockRect.top - contentRect.top) : (blockRect.left - contentRect.left);
+                const targetPage = Math.floor(Math.abs(offset) / measuredPageSize);
+
+                goToPage(Math.max(0, Math.min(targetPage, totalPages - 1)));
+                saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
+            }
+        }
+    }, [currentSection, goToSection, goToPage, isVertical, measuredPageSize, totalPages]);
+
+    const scrollToChapter = useCallback((chapterIndex: number) => {
+        console.log('[PagedReader] scrollToChapter:', chapterIndex);
+        if (chapterIndex !== currentSection) {
+            restoreAnchorRef.current = {
+                chapterIndex,
+                blockId: undefined,
+                chapterCharOffset: 0
+            };
+            goToSection(chapterIndex, false);
+        } else {
+            goToPage(0);
+        }
+    }, [currentSection, goToSection, goToPage]);
+
+    // Expose navigation functions via ref
+    useEffect(() => {
+        if (navigationRef) {
+            navigationRef.current = {
+                scrollToBlock,
+                scrollToChapter,
+            };
+        }
+    }, [scrollToBlock, scrollToChapter, navigationRef]);
 
     // ========================================================================
     // Touch/Click Handlers

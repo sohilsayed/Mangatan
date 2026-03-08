@@ -392,81 +392,84 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     // ========================================================================
 
     useEffect(() => {
-        // Skip if already restored or no position to restore
-        if (restorationStateRef.current === 'ACTIVE') return;
-        if (!initialProgress?.blockId) {
-            restorationStateRef.current = 'ACTIVE';
-            setRestorationComplete(true);
-            return;
-        }
-        
-        const container = containerRef.current;
-        if (!container || !contentLoaded) return;
-        
-        const targetChapterIndex = initialProgress.chapterIndex ?? 0;
-        
-        // Wait for fonts and layout to settle before restoring
-        const waitForReady = async () => {
+        let isCancelled = false;
+
+        const performRestoration = async () => {
+            // Skip if already restored or no position to restore
+            if (restorationStateRef.current === 'ACTIVE') return;
+            if (!initialProgress?.blockId) {
+                restorationStateRef.current = 'ACTIVE';
+                setRestorationComplete(true);
+                return;
+            }
+
+            const container = containerRef.current;
+            if (!container || !contentLoaded || isCancelled) return;
+
+            const targetChapterIndex = initialProgress.chapterIndex ?? 0;
+
+            // Wait for fonts and layout to settle before restoring
             if (document.fonts) {
                 try { await document.fonts.ready; } catch {}
             }
+            if (isCancelled) return;
+
             // Wait for layout to settle
             await new Promise(r => requestAnimationFrame(r));
             await new Promise(r => requestAnimationFrame(r));
-        };
-        
-        // First check - if no blocks, wait and try again
-        let blocks = container.querySelectorAll(`[data-block-id^="ch${targetChapterIndex}-b"]`);
-        if (blocks.length === 0) {
-            await waitForReady();
-            // Check again after waiting
-            blocks = container.querySelectorAll(`[data-block-id^="ch${targetChapterIndex}-b"]`);
-        }
-        
-        if (blocks.length === 0) {
-            // Target chapter not in DOM yet
-            // Effect will re-run when DOM updates (via contentLoaded or other deps)
-            console.log('[Restore] Waiting for chapter', targetChapterIndex, 'to appear in DOM');
-            restorationStateRef.current = 'WAITING_FOR_DOM';
-            return;
-        }
-        
-        // Target chapter is ready - perform restoration
-        console.log('[Restore] Chapter', targetChapterIndex, 'ready with', blocks.length, 'blocks');
-        restorationStateRef.current = 'RESTORING';
-        
-        const result = restoreReadingPosition(
-            container,
-            {
-                chapterIndex: targetChapterIndex,
-                blockId: initialProgress.blockId,
-                blockLocalOffset: initialProgress.blockLocalOffset,
-                contextSnippet: initialProgress.contextSnippet,
-                chapterCharOffset: initialProgress.chapterCharOffset,
-                sentenceText: initialProgress.sentenceText,
-            },
-            {
-                isVertical,
-                isRTL,
-                blockMaps: stats?.blockMaps,
+            if (isCancelled) return;
+
+            // Check if target chapter blocks are present
+            let blocks = container.querySelectorAll(`[data-block-id^="ch${targetChapterIndex}-b"]`);
+            if (blocks.length === 0) {
+                console.log('[Restore] Waiting for chapter', targetChapterIndex, 'to appear in DOM');
+                restorationStateRef.current = 'WAITING_FOR_DOM';
+                return;
             }
-        );
-        
-        // Update refs
-        currentBlockIdRef.current = result.blockId || initialProgress.blockId;
-        saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
-        
-        console.log('[Restore] Position restored:', result);
-        
-        // Wait for scroll to settle using requestAnimationFrame (not setTimeout!)
-        requestAnimationFrame(() => {
+
+            // Target chapter is ready - perform restoration
+            console.log('[Restore] Chapter', targetChapterIndex, 'ready with', blocks.length, 'blocks');
+            restorationStateRef.current = 'RESTORING';
+
+            const result = restoreReadingPosition(
+                container,
+                {
+                    chapterIndex: targetChapterIndex,
+                    blockId: initialProgress.blockId,
+                    blockLocalOffset: initialProgress.blockLocalOffset,
+                    contextSnippet: initialProgress.contextSnippet,
+                    chapterCharOffset: initialProgress.chapterCharOffset,
+                    sentenceText: initialProgress.sentenceText,
+                },
+                {
+                    isVertical,
+                    isRTL,
+                    blockMaps: stats?.blockMaps,
+                }
+            );
+
+            if (isCancelled) return;
+
+            // Update refs
+            currentBlockIdRef.current = result.blockId || initialProgress.blockId;
+            saveLockUntilRef.current = Date.now() + SAVE_LOCK_DURATION_MS;
+
+            console.log('[Restore] Position restored:', result);
+
+            // Wait for scroll to settle
             requestAnimationFrame(() => {
-                restorationStateRef.current = 'ACTIVE';
-                setRestorationComplete(true);
-                console.log('[Restore] Restoration complete, tracking enabled');
+                if (isCancelled) return;
+                requestAnimationFrame(() => {
+                    if (isCancelled) return;
+                    restorationStateRef.current = 'ACTIVE';
+                    setRestorationComplete(true);
+                    console.log('[Restore] Restoration complete, tracking enabled');
+                });
             });
-        });
-        
+        };
+
+        performRestoration();
+        return () => { isCancelled = true; };
     }, [contentLoaded, initialProgress, isVertical, isRTL, stats?.blockMaps, layoutKey]);
 
     // ========================================================================
@@ -568,7 +571,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         const chapterMatch = blockId.match(/ch(\d+)-/);
         const chapterIndex = chapterMatch ? parseInt(chapterMatch[1], 10) : 0;
 
-        console.log('[Navigate] scrollToBlock:', blockId, 'chapter:', chapterIndex);
+        console.log('[Navigate] scrollToBlock:', blockId, 'offset:', blockLocalOffset, 'chapter:', chapterIndex);
 
         // Set state to navigating (prevents saves)
         restorationStateRef.current = 'NAVIGATING';
@@ -580,65 +583,48 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         // Load chapter with priority
         loadChapter(chapterIndex, true);
 
-        // Use MutationObserver to wait for block to appear (no setTimeout!)
-        const observer = new MutationObserver(() => {
-            const block = container.querySelector(`[data-block-id="${blockId}"]`);
-            
-            if (block) {
-                observer.disconnect();
-                
-                // Scroll to block
-                block.scrollIntoView({ behavior: 'auto', block: 'start' });
+        const performScroll = (element: Element) => {
+            element.scrollIntoView({ behavior: 'auto', block: 'start' });
 
-                // Apply local offset if provided
-                if (blockLocalOffset && blockLocalOffset > 0) {
-                    requestAnimationFrame(() => {
-                        applyLocalOffset(block as Element, container, blockLocalOffset, isVertical, isRTL);
-                    });
-                }
-
-                // Update tracking
-                currentBlockIdRef.current = blockId;
-
-                // Load adjacent chapters
-                loadChaptersAround(chapterIndex);
-
-                // Enable tracking after scroll settles
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        restorationStateRef.current = 'ACTIVE';
-                        setRestorationComplete(true);
-                    });
-                });
-            }
-        });
-
-        // Start observing
-        observer.observe(container, { childList: true, subtree: true });
-
-        // Check if block already exists
-        const existingBlock = container.querySelector(`[data-block-id="${blockId}"]`);
-        if (existingBlock) {
-            observer.disconnect();
-            
-            existingBlock.scrollIntoView({ behavior: 'auto', block: 'start' });
-            
             if (blockLocalOffset && blockLocalOffset > 0) {
+                // Use multiple frames to ensure layout is updated after scrollIntoView
                 requestAnimationFrame(() => {
-                    applyLocalOffset(existingBlock as Element, container, blockLocalOffset, isVertical, isRTL);
+                    requestAnimationFrame(() => {
+                        applyLocalOffset(element, container, blockLocalOffset, isVertical, isRTL);
+                    });
                 });
             }
-            
+
             currentBlockIdRef.current = blockId;
             loadChaptersAround(chapterIndex);
-            
+
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     restorationStateRef.current = 'ACTIVE';
                     setRestorationComplete(true);
                 });
             });
+        };
+
+        // Check if block already exists
+        const existingBlock = container.querySelector(`[data-block-id="${blockId}"]`);
+        if (existingBlock) {
+            performScroll(existingBlock);
+            return;
         }
+
+        // Use MutationObserver to wait for block to appear
+        const observer = new MutationObserver(() => {
+            const block = container.querySelector(`[data-block-id="${blockId}"]`);
+            if (block) {
+                observer.disconnect();
+                clearTimeout(safetyTimeout);
+                performScroll(block);
+            }
+        });
+
+        // Start observing
+        observer.observe(container, { childList: true, subtree: true });
 
         // Safety timeout to disconnect observer
         const safetyTimeout = setTimeout(() => {
@@ -646,13 +632,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
             console.log('[Navigate] Observer timeout - block may not exist');
             restorationStateRef.current = 'ACTIVE';
             setRestorationComplete(true);
-        }, 3000);
-
-        // Clean up safety timeout if observer finds block
-        return () => {
-            clearTimeout(safetyTimeout);
-            observer.disconnect();
-        };
+        }, 5000);
     }, [isVertical, isRTL, loadChapter, loadChaptersAround]);
 
     const scrollToChapter = useCallback((chapterIndex: number) => {
@@ -671,49 +651,15 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         // Load chapter
         loadChapter(chapterIndex, true);
 
-        // Use MutationObserver
-        const observer = new MutationObserver(() => {
-            const blocks = container.querySelectorAll(
-                `[data-block-id^="ch${chapterIndex}-b"]`
-            );
+        const performScroll = (blocks: NodeListOf<Element>) => {
+            if (blocks.length === 0) return;
             
-            if (blocks.length > 0) {
-                observer.disconnect();
-                
-                // Scroll to first block
-                (blocks[0] as HTMLElement).scrollIntoView({ 
-                    behavior: 'auto', 
-                    block: 'start' 
-                });
-                
-                currentBlockIdRef.current = blocks[0].getAttribute('data-block-id');
-                loadChaptersAround(chapterIndex);
-                
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        restorationStateRef.current = 'ACTIVE';
-                        setRestorationComplete(true);
-                    });
-                });
-            }
-        });
-
-        observer.observe(container, { childList: true, subtree: true });
-
-        // Check if already exists
-        const existingBlocks = container.querySelectorAll(
-            `[data-block-id^="ch${chapterIndex}-b"]`
-        );
-        
-        if (existingBlocks.length > 0) {
-            observer.disconnect();
-            
-            (existingBlocks[0] as HTMLElement).scrollIntoView({ 
+            (blocks[0] as HTMLElement).scrollIntoView({
                 behavior: 'auto', 
                 block: 'start' 
             });
             
-            currentBlockIdRef.current = existingBlocks[0].getAttribute('data-block-id');
+            currentBlockIdRef.current = blocks[0].getAttribute('data-block-id');
             loadChaptersAround(chapterIndex);
             
             requestAnimationFrame(() => {
@@ -722,14 +668,40 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                     setRestorationComplete(true);
                 });
             });
+        };
+
+        // Check if already exists
+        const existingBlocks = container.querySelectorAll(
+            `[data-block-id^="ch${chapterIndex}-b"]`
+        );
+
+        if (existingBlocks.length > 0) {
+            performScroll(existingBlocks);
+            return;
         }
 
+        // Use MutationObserver
+        const observer = new MutationObserver(() => {
+            const blocks = container.querySelectorAll(
+                `[data-block-id^="ch${chapterIndex}-b"]`
+            );
+
+            if (blocks.length > 0) {
+                observer.disconnect();
+                clearTimeout(safetyTimeout);
+                performScroll(blocks);
+            }
+        });
+
+        observer.observe(container, { childList: true, subtree: true });
+
         // Safety timeout
-        setTimeout(() => {
+        const safetyTimeout = setTimeout(() => {
             observer.disconnect();
+            console.log('[Navigate] scrollToChapter timeout');
             restorationStateRef.current = 'ACTIVE';
             setRestorationComplete(true);
-        }, 3000);
+        }, 5000);
     }, [loadChapter, loadChaptersAround]);
 
     // Expose navigation functions via ref
