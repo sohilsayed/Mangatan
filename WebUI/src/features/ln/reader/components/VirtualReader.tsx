@@ -144,6 +144,20 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     const isVertical = settings.lnReadingDirection?.includes('vertical');
     const isRTL = settings.lnReadingDirection === 'vertical-rtl';
 
+    const getHighlightsForChapter = useCallback((chapterIndex: number): LNHighlight[] => {
+        return highlights?.filter(h => h.chapterIndex === chapterIndex) ?? [];
+    }, [highlights]);
+
+    const chaptersWithHighlights = useMemo(() => {
+        return items.map((html, index) => {
+            const chapterHighlights = getHighlightsForChapter(index);
+            if (chapterHighlights.length === 0) {
+                return html;
+            }
+            return injectHighlightsIntoHtml(html, chapterHighlights);
+        });
+    }, [items, highlights, getHighlightsForChapter]);
+
     // Sanitize EPUB CSS - strip fonts so reader settings take precedence
     const cleanedCss = useMemo(() => sanitizeEpubCss(css ?? ''), [css]);
 
@@ -283,7 +297,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
 
     const commonProps = {
         bookId,
-        chapters: items,
+        chapters: chaptersWithHighlights,
         stats,
         settings,
         css: cleanedCss,
