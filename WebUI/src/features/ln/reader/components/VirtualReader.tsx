@@ -205,6 +205,11 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         forceSaveRef.current = saveFn;
     }, []);
 
+    const handleAddHighlight = useCallback(async (...args: Parameters<typeof onAddHighlight>) => {
+        await onAddHighlight?.(...args);
+        setReaderKey((k) => k + 1);
+    }, [onAddHighlight]);
+
 
     useEffect(() => {
         const prevDirection = prevSettingsRef.current.direction;
@@ -313,7 +318,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         onUpdateSettings,
         chapterFilenames,
         highlights,
-        onAddHighlight,
+        onAddHighlight: handleAddHighlight,
         safeAreaTopInset,
         safeAreaTopOffsetPx,
         navigationRef,
