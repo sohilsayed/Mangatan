@@ -1080,6 +1080,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                                 isLoading={loadingState.get(index) || false}
                                 isVertical={isVertical}
                                 settings={settings}
+                                highlights={highlights}
                             />
                         ))}
                     </div>

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo, useLayoutEffect } from 'react';
-import { LNHighlight } from '@/lib/storage/AppStorage';
+import { ChapterBlock } from '@/features/ln/reader/components/ChapterBlock';
 import { ReaderNavigationUI } from '@/features/ln/reader/components/ReaderNavigationUI';
 import { ClickZones, getClickZone } from '@/features/ln/reader/components/ClickZones';
 import { SelectionHandles } from '@/features/ln/reader/components/SelectionHandles';
@@ -37,99 +37,6 @@ function adjustBrightness(hexColor: string, brightness: number): string {
 
     const factor = brightness / 100;
     return `rgb(${Math.round(r * factor)}, ${Math.round(g * factor)}, ${Math.round(b * factor)})`;
-}
-
-// ============================================================================
-// Highlight Application
-// ============================================================================
-
-function applyHighlightsToHtml(html: string, chapterHighlights: LNHighlight[], chapterIndex: number): string {
-    if (!chapterHighlights.length || !html) return html;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-
-    // Sort highlights by startOffset descending so we apply from end to start
-    // This prevents offset shifting issues
-    const sortedHighlights = [...chapterHighlights]
-        .filter((h) => h.chapterIndex === chapterIndex)
-        .sort((a, b) => {
-            // First by blockId, then by startOffset descending
-            if (a.blockId !== b.blockId) {
-                return a.blockId.localeCompare(b.blockId);
-            }
-            return b.startOffset - a.startOffset;
-        });
-
-    for (const highlight of sortedHighlights) {
-        const block = doc.querySelector(`[data-block-id="${highlight.blockId}"]`);
-        if (!block) continue;
-
-        try {
-            applyHighlightToBlock(block, highlight.startOffset, highlight.endOffset, highlight.id);
-        } catch (err) {
-            console.warn('[Highlights] Failed to apply highlight:', highlight.id, err);
-        }
-    }
-
-    return doc.body.innerHTML;
-}
-
-function applyHighlightToBlock(block: Element, startOffset: number, endOffset: number, highlightId: string): void {
-    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT, null);
-
-    let currentOffset = 0;
-    const textNodes: { node: Text; start: number; end: number }[] = [];
-
-    // Collect all text nodes with their offsets
-    while (walker.nextNode()) {
-        const node = walker.currentNode as Text;
-        const nodeLength = node.textContent?.length || 0;
-
-        textNodes.push({
-            node,
-            start: currentOffset,
-            end: currentOffset + nodeLength,
-        });
-
-        currentOffset += nodeLength;
-    }
-
-    // Find nodes that overlap with the highlight range
-    const overlappingNodes = textNodes.filter((tn) => tn.end > startOffset && tn.start < endOffset);
-
-    // Apply highlight to each overlapping node (in reverse order to preserve offsets)
-    for (let i = overlappingNodes.length - 1; i >= 0; i--) {
-        const { node, start } = overlappingNodes[i];
-
-        const highlightStart = Math.max(0, startOffset - start);
-        const highlightEnd = Math.min(node.textContent?.length || 0, endOffset - start);
-
-        if (highlightStart >= highlightEnd) continue;
-
-        const text = node.textContent || '';
-        const before = text.substring(0, highlightStart);
-        const highlighted = text.substring(highlightStart, highlightEnd);
-        const after = text.substring(highlightEnd);
-
-        const fragment = document.createDocumentFragment();
-
-        if (before) {
-            fragment.appendChild(document.createTextNode(before));
-        }
-
-        const mark = document.createElement('mark');
-        mark.className = 'highlight';
-        mark.dataset.highlightId = highlightId;
-        mark.textContent = highlighted;
-        fragment.appendChild(mark);
-
-        if (after) {
-            fragment.appendChild(document.createTextNode(after));
-        }
-
-        node.parentNode?.replaceChild(fragment, node);
-    }
 }
 
 // ============================================================================
@@ -253,16 +160,6 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     const [disableChunkTransition, setDisableChunkTransition] = useState(false);
 
     const currentHtml = useMemo(() => chapters[currentSection] || '', [chapters, currentSection]);
-
-    // Apply highlights to the HTML
-    const highlightedHtml = useMemo(() => {
-        if (!highlights || highlights.length === 0) return currentHtml;
-
-        const chapterHighlights = highlights.filter((h) => h.chapterIndex === currentSection);
-        if (chapterHighlights.length === 0) return currentHtml;
-
-        return applyHighlightsToHtml(currentHtml, chapterHighlights, currentSection);
-    }, [currentHtml, highlights, currentSection]);
 
     // ========================================================================
     // Simple Derived Values
@@ -414,10 +311,10 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     ]);
 
     const isImageOnly = useMemo(() => {
-        if (!highlightedHtml) return false;
-        const text = highlightedHtml.replace(/<[^>]*>/g, '').trim();
-        return text.length < 5 && /<img|<svg/i.test(highlightedHtml);
-    }, [highlightedHtml]);
+        if (!currentHtml) return false;
+        const text = currentHtml.replace(/<[^>]*>/g, '').trim();
+        return text.length < 5 && /<img|<svg/i.test(currentHtml);
+    }, [currentHtml]);
     const typographyStyles = useMemo(() => buildTypographyStyles(settings, isVertical), [settings, isVertical]);
 
     // ========================================================================
@@ -760,7 +657,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         }
     }, [activeChunk]);
 
-    const displayHtml = activeChunk ? activeChunk.html : highlightedHtml;
+    const displayHtml = activeChunk ? activeChunk.html : currentHtml;
     const displayLocalPage = activeChunk ? Math.max(0, currentPage - activeChunk.startPage) : currentPage;
     const transform = useMemo(() => {
         const effectivePageSize =
@@ -1484,7 +1381,16 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                         style={{ ...contentStyle, opacity: renderPhase === 'measuring' ? 0 : 1 }}
                     >
                         {css && <style>{`@scope (.paged-content) { \n${css}\n }`}</style>}
-                        <div className="paged-content-inner" dangerouslySetInnerHTML={{ __html: displayHtml }} />
+                        <div className="paged-content-inner">
+                            <ChapterBlock
+                                html={displayHtml}
+                                index={currentSection}
+                                isLoading={false}
+                                isVertical={isVertical}
+                                settings={settings}
+                                highlights={highlights}
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
