@@ -64,6 +64,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     highlights = [],
     onAddHighlight,
     onRemoveHighlight,
+    onBlockClick,
     navigationRef,
     css,
 }) => {
@@ -807,6 +808,15 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 return;
             }
 
+            // Handle Whisper Sync matching/click
+            const blockEl = target.closest('[data-block-id]');
+            if (blockEl) {
+                const blockId = blockEl.getAttribute('data-block-id');
+                if (blockId && onBlockClick?.(blockId)) {
+                    return;
+                }
+            }
+
             // Try text lookup
             const lookupSuccess = await tryLookup(e);
             if (!lookupSuccess) {
@@ -903,7 +913,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
         return () => container.removeEventListener('wheel', handleWheel);
     }, [isVertical, isRTL, settings.lnFontSize, settings.lnLineHeight]);
 
-    const handleSaveNow = useCallback(async (): Promise<boolean> => saveSchedulerRef.current.saveNow(), []);
+    const handleSaveNow = useCallback(async (): Promise<void> => { await saveSchedulerRef.current.saveNow(); }, []);
 
     // ========================================================================
     // Visibility Change Handler
@@ -1106,7 +1116,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                 settings={settings}
                 onUpdateSettings={handleUpdateSettings}
                 isSaved={isSaved}
-                onSaveNow={handleSaveNow}
+                onSaveNow={handleSaveNow as any}
             />
 
             <SelectionHandles

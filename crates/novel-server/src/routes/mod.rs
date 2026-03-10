@@ -29,6 +29,10 @@ pub fn router() -> Router<NovelState> {
         .route("/categories/metadata/{id}", post(update_category_metadata))
         .route("/upload/{id}", post(upload_epub))
         .route("/file/{id}", get(get_epub))
+        .route("/whisper-sync/{id}", get(get_whisper_sync))
+        .route("/whisper-sync/{id}", post(update_whisper_sync))
+        .route("/whisper-sync/{id}/upload", post(upload_whisper_sync_file))
+        .route("/whisper-sync/{id}/file/{filename}", get(get_whisper_sync_file))
 }
 
 fn discover_pending_epubs(state: &NovelState) -> Result<Vec<DiscoveredEpub>, NovelError> {
@@ -451,6 +455,100 @@ async fn get_epub(
     let legacy_path = state.get_legacy_epub_path(&id);
     if legacy_path.exists() {
         return Ok(fs::read(legacy_path)?);
+    }
+
+    Err(NovelError::NotFound)
+}
+
+async fn get_whisper_sync(
+    State(state): State<NovelState>,
+    Path(id): Path<String>,
+) -> Result<Json<WhisperSyncData>, NovelError> {
+    let key = format!("whisper_sync:{}", id);
+    let v = state.db.get(key)?;
+    if let Some(bytes) = v {
+        let data: WhisperSyncData = serde_json::from_slice(&bytes)?;
+        Ok(Json(data))
+    } else {
+        Ok(Json(WhisperSyncData {
+            book_id: id,
+            ..Default::default()
+        }))
+    }
+}
+
+async fn update_whisper_sync(
+    State(state): State<NovelState>,
+    Path(id): Path<String>,
+    Json(req): Json<UpdateWhisperSyncRequest>,
+) -> Result<(), NovelError> {
+    let key = format!("whisper_sync:{}", id);
+    let bytes = serde_json::to_vec(&req.data)?;
+    state.db.insert(key, bytes)?;
+
+    // Sidecar save
+    let novel_dir = state.get_novel_dir(&id);
+    fs::create_dir_all(&novel_dir)?;
+    let sidecar_path = novel_dir.join("metadata.json");
+
+    let mut sidecar_data = if sidecar_path.exists() {
+        let content = fs::read_to_string(&sidecar_path)?;
+        serde_json::from_str::<serde_json::Value>(&content).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    sidecar_data["whisperSync"] = serde_json::to_value(&req.data)?;
+    fs::write(sidecar_path, serde_json::to_string_pretty(&sidecar_data)?)?;
+
+    state.db.flush()?;
+    Ok(())
+}
+
+async fn upload_whisper_sync_file(
+    State(state): State<NovelState>,
+    Path(id): Path<String>,
+    mut multipart: Multipart,
+) -> Result<(), NovelError> {
+    // Sanitize book ID
+    if id.contains("..") || id.contains('/') || id.contains('\\') {
+        return Err(NovelError::BadRequest("Invalid book ID".into()));
+    }
+
+    let whisper_dir = state.get_novel_dir(&id).join("whisper-sync");
+    fs::create_dir_all(&whisper_dir)?;
+
+    while let Some(field) = multipart.next_field().await? {
+        if let Some(filename) = field.file_name().map(|f| f.to_string()) {
+            // Sanitize filename
+            if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
+                continue;
+            }
+            let data = field.bytes().await?;
+            let path = whisper_dir.join(filename);
+            fs::write(path, data)?;
+        }
+    }
+    Ok(())
+}
+
+async fn get_whisper_sync_file(
+    State(state): State<NovelState>,
+    Path((id, filename)): Path<(String, String)>,
+) -> Result<Vec<u8>, NovelError> {
+    // Sanitize book ID and filename
+    if id.contains("..") || id.contains('/') || id.contains('\\') {
+        return Err(NovelError::BadRequest("Invalid book ID".into()));
+    }
+    if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
+        return Err(NovelError::BadRequest("Invalid filename".into()));
+    }
+
+    let whisper_dir = state.get_novel_dir(&id).join("whisper-sync");
+    let path = whisper_dir.join(filename);
+
+    if path.exists() {
+        return Ok(fs::read(path)?);
     }
 
     Err(NovelError::NotFound)

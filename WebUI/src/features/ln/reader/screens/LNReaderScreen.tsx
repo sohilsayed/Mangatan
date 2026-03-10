@@ -28,6 +28,7 @@ import ImageIcon from '@mui/icons-material/Image';
 import SearchIcon from '@mui/icons-material/Search';
 import FormatQuoteIcon from '@mui/icons-material/FormatQuote';
 import DeleteIcon from '@mui/icons-material/Delete';
+import AudiotrackIcon from '@mui/icons-material/Audiotrack';
 
 import ManatanLogo from '@/Manatan/assets/manatan_logo.png';
 import { AppStorage, LNHighlight } from '@/lib/storage/AppStorage';
@@ -37,6 +38,11 @@ import { useLnSettings } from '../hooks/useLnSettings';
 import { getDefaultLnSettings } from '../utils/lnSettings';
 import { VirtualReader } from '../components/VirtualReader';
 import { ReaderControls } from '../components/ReaderControls';
+import { WhisperSyncPanel } from '../components/WhisperSyncPanel';
+import { WhisperSyncMatchUI } from '../components/WhisperSyncMatchUI';
+import { WhisperSyncPlayer } from '../components/WhisperSyncPlayer';
+import { useWhisperSync } from '../hooks/useWhisperSync';
+import { WhisperSyncTrack } from '../types/whisperSync';
 import { YomitanPopup } from '@/Manatan/components/YomitanPopup';
 import { useSyncOnChapterOpen, useSyncOnChapterRead } from '@/features/sync/services/useSyncTriggers';
 
@@ -59,10 +65,8 @@ export const LNReaderScreen: React.FC = () => {
     // Get language from content and use LN-specific settings
     const { content, isLoading, error } = useBookContent(id);
     const bookLanguage = content?.metadata?.language;
-    const { settings: lnSettings, setSettings: setLnSettings, fullSettings } = useLnSettings(bookLanguage);
-
-    // Use LN settings only (not OCR settings)
-    const settings = fullSettings;
+    const { setSettings: setLnSettings, fullSettings: settings, fullSettings } = useLnSettings(bookLanguage);
+    // @ts-ignore
     const [savedProgress, setSavedProgress] = useState<any>(null);
     const [tocOpen, setTocOpen] = useState(false);
     const [searchOpen, setSearchOpen] = useState(false);
@@ -73,6 +77,13 @@ export const LNReaderScreen: React.FC = () => {
     const [currentChapter, setCurrentChapter] = useState(0);
     const [showMigrationDialog, setShowMigrationDialog] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const [whisperSyncOpen, setWhisperSyncOpen] = useState(false);
+    const [activeTrack, setActiveTrack] = useState<WhisperSyncTrack | null>(null);
+    const [matchTrack, setMatchTrack] = useState<WhisperSyncTrack | null>(null);
+    const [isMatching, setIsMatching] = useState(false);
+    // @ts-ignore
+    const [onBlockSelected, setOnBlockSelected] = useState<((blockId: string) => void) | null>(null);
+    const [lastAutoScrolledBlockId, setLastAutoScrolledBlockId] = useState<string | null>(null);
     const [expandedToc, setExpandedToc] = useState<Set<number>>(new Set());
     const navigationRef = useRef<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>({});
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -88,10 +99,17 @@ export const LNReaderScreen: React.FC = () => {
 
     const bookId = id || '';
     const chapterId = bookId ? `${bookId}-${currentChapter}` : null;
-    const { triggerSync } = useSyncOnChapterRead();
+    useSyncOnChapterRead();
     useSyncOnChapterOpen(chapterId);
 
     const { highlights, loading: highlightsLoading, addHighlight, removeHighlight, exportToTxt, exportToJson, downloadFile, refresh } = useHighlights(bookId);
+    const {
+        data: whisperSyncData,
+        loading: whisperSyncLoading,
+        updateData: updateWhisperSyncData,
+        uploadFile: uploadWhisperSyncFile,
+        getFileUrl: getWhisperSyncFileUrl
+    } = useWhisperSync(bookId);
 
     useEffect(() => {
         if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body) {
@@ -350,6 +368,45 @@ export const LNReaderScreen: React.FC = () => {
         setCurrentChapter(chapterIndex);
     };
 
+    const handlePlayTrack = (track: WhisperSyncTrack) => {
+        setActiveTrack(track);
+        setWhisperSyncOpen(false);
+    };
+
+    const handleTimeUpdate = (currentTime: number) => {
+        if (!whisperSyncData || !activeTrack) return;
+
+        // Find the match corresponding to the current time
+        const matches = whisperSyncData.matches.filter(m => m.trackId === activeTrack.id);
+        const currentMatch = matches.find(m => currentTime >= m.startTime && currentTime <= m.endTime);
+
+        if (currentMatch && currentMatch.blockId !== lastAutoScrolledBlockId && navigationRef.current?.scrollToBlock) {
+            // Only scroll if auto-scroll is enabled (you can add a setting for this, using true for now)
+            navigationRef.current.scrollToBlock(currentMatch.blockId, 0);
+            setLastAutoScrolledBlockId(currentMatch.blockId);
+        }
+    };
+
+    const handleOpenMatchUI = (track: WhisperSyncTrack) => {
+        setMatchTrack(track);
+        setWhisperSyncOpen(false);
+    };
+
+    const handleSelectBlockForMatch = (callback: (blockId: string) => void) => {
+        setIsMatching(true);
+        setOnBlockSelected(() => callback);
+    };
+
+    const handleBlockClick = (blockId: string) => {
+        if (isMatching && onBlockSelected) {
+            onBlockSelected(blockId);
+            setIsMatching(false);
+            setOnBlockSelected(null);
+            return true;
+        }
+        return false;
+    };
+
     const toggleTocExpand = (index: number) => {
         setExpandedToc(prev => {
             const newSet = new Set(prev);
@@ -584,7 +641,8 @@ export const LNReaderScreen: React.FC = () => {
                 }
                 highlights={highlights}
                 onAddHighlight={addHighlight}
-                onUpdateSettings={(key, value) => setSettings(prev => ({ ...prev, [key]: value }))}
+                onBlockClick={handleBlockClick}
+                onUpdateSettings={(key, value) => setLnSettings({ [key]: value })}
                 onChapterChange={handleChapterChange}
                 navigationRef={navigationRef}
                 safeAreaTopInset={readerSafeTopInset}
@@ -635,7 +693,7 @@ export const LNReaderScreen: React.FC = () => {
                                         component="img"
                                         src={ManatanLogo}
                                         alt="Manatan"
-                                        sx={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
+                                        style={{ width: 20, height: 20, borderRadius: '50%', objectFit: 'cover' }}
                                     />
                                 </IconButton>
 
@@ -649,6 +707,10 @@ export const LNReaderScreen: React.FC = () => {
 
                                 <IconButton onClick={() => setTocOpen(true)} sx={{ color: theme.fg }}>
                                     <FormatListBulletedIcon />
+                                </IconButton>
+
+                                <IconButton onClick={() => setWhisperSyncOpen(true)} sx={{ color: theme.fg }}>
+                                    <AudiotrackIcon />
                                 </IconButton>
 
                                 <IconButton onClick={() => setSettingsOpen(true)} sx={{ color: theme.fg }}>
@@ -925,7 +987,7 @@ export const LNReaderScreen: React.FC = () => {
             <ReaderControls
                 open={settingsOpen}
                 onClose={() => setSettingsOpen(false)}
-                settings={fullSettings}
+                settings={fullSettings as any}
                 onUpdateSettings={(k, v) => setLnSettings({ [k]: v })}
                 onResetSettings={() => {
                     const defaults = getDefaultLnSettings();
@@ -1012,6 +1074,79 @@ export const LNReaderScreen: React.FC = () => {
             </Drawer>
 
             <YomitanPopup />
+
+            <Drawer
+                anchor="right"
+                open={whisperSyncOpen}
+                onClose={() => setWhisperSyncOpen(false)}
+                PaperProps={{
+                    sx: {
+                        width: '85%',
+                        maxWidth: 400,
+                        bgcolor: theme.bg,
+                        color: theme.fg,
+                    },
+                }}
+            >
+                <WhisperSyncPanel
+                    data={whisperSyncData}
+                    loading={whisperSyncLoading}
+                    onUpdate={updateWhisperSyncData}
+                    onUpload={uploadWhisperSyncFile}
+                    onPlayTrack={handlePlayTrack}
+                    onOpenMatchUI={handleOpenMatchUI}
+                    theme={theme}
+                    bookId={id!}
+                />
+            </Drawer>
+
+            {matchTrack && whisperSyncData && (
+                <WhisperSyncMatchUI
+                    track={matchTrack}
+                    data={whisperSyncData}
+                    onUpdate={updateWhisperSyncData}
+                    onClose={() => setMatchTrack(null)}
+                    theme={theme}
+                    getSubtitleFile={async (filename) => {
+                        const url = getWhisperSyncFileUrl(filename);
+                        const response = await fetch(url);
+                        return await response.text();
+                    }}
+                    onSelectBlock={handleSelectBlockForMatch}
+                />
+            )}
+
+            {activeTrack && (
+                <WhisperSyncPlayer
+                    src={getWhisperSyncFileUrl(activeTrack.audioFilename)}
+                    label={activeTrack.label}
+                    onTimeUpdate={handleTimeUpdate}
+                    onClose={() => setActiveTrack(null)}
+                    theme={theme}
+                />
+            )}
+
+            {isMatching && (
+                <Box
+                    sx={{
+                        position: 'fixed',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        zIndex: 2000,
+                        bgcolor: 'rgba(0,0,0,0.8)',
+                        color: 'white',
+                        px: 3,
+                        py: 2,
+                        borderRadius: 2,
+                        pointerEvents: 'none',
+                        textAlign: 'center'
+                    } as any}
+                >
+                    <Typography variant="h6">Matching Mode</Typography>
+                    <Typography variant="body2">Tap the text to match the subtitle line</Typography>
+                </Box>
+            )}
 
             <Dialog
                 open={showMigrationDialog}

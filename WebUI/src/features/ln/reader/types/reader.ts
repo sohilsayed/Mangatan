@@ -51,6 +51,7 @@ export interface BaseReaderProps {
     highlights?: LNHighlight[];
     onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
     onRemoveHighlight?: (highlightId: string) => void;
+    onBlockClick?: (blockId: string) => boolean;
 }
 
 export interface PagedReaderProps extends BaseReaderProps {

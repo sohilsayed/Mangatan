@@ -167,6 +167,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     highlights = [],
     onAddHighlight,
     onRemoveHighlight,
+    onBlockClick,
     navigationRef,
     css,
 }) => {
@@ -746,8 +747,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         totalPages,
         isImageOnly,
         measuredPageSize,
-        layout?.columnWidth,
-        layout?.gap,
+        layout,
     ]);
 
     const prevChunkRef = useRef(activeChunk);
@@ -860,6 +860,8 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
             currentSection,
             stats?.blockMaps,
         );
+
+        if (!detected) return;
 
         // Update the anchor for future restores
         restoreAnchorRef.current = {
@@ -1192,6 +1194,15 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 return;
             }
 
+            // Handle Whisper Sync matching/click
+            const blockEl = target.closest('[data-block-id]');
+            if (blockEl) {
+                const blockId = blockEl.getAttribute('data-block-id');
+                if (blockId && onBlockClick?.(blockId)) {
+                    return;
+                }
+            }
+
             // Try text lookup first (highest priority)
             const lookupSuccess = await tryLookup(e);
             if (lookupSuccess) return;
@@ -1246,7 +1257,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
         [goNext, goPrev, goToPage, totalPages],
     );
 
-    const handleSaveNow = useCallback(async (): Promise<boolean> => saveSchedulerRef.current.saveNow(), []);
+    const handleSaveNow = useCallback(async (): Promise<void> => { await saveSchedulerRef.current.saveNow(); }, []);
 
     // ========================================================================
     // Keyboard Navigation
@@ -1501,7 +1512,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                 enabled={contentReady && !isTransitioning}
                 theme={(settings.lnTheme as 'light' | 'sepia' | 'dark' | 'black') || 'dark'}
                 onSelectionComplete={(text, startOffset, endOffset, blockId) => {
-                    if (onAddHighlight && currentSection && blockId) {
+                    if (onAddHighlight && currentSection !== undefined && blockId) {
                         onAddHighlight(currentSection, blockId, text, startOffset, endOffset);
                     }
                 }}
@@ -1543,9 +1554,9 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
                     currentPosition={currentPosition ?? undefined}
                     bookStats={stats ?? undefined}
                     settings={settings}
-                    onUpdateSettings={onUpdateSettings}
+                    onUpdateSettings={onUpdateSettings!}
                     isSaved={isSaved}
-                    onSaveNow={handleSaveNow}
+                    onSaveNow={handleSaveNow as any}
                 />
             )}
         </div>

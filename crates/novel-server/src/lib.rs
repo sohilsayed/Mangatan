@@ -109,6 +109,12 @@ fn scan_local_novel(state: &NovelState) -> anyhow::Result<()> {
                 let bytes = serde_json::to_vec(&parsed)?;
                 state.db.insert(format!("content:{}", id), bytes)?;
             }
+
+            if let Some(whisper_sync) = sidecar_data.get("whisperSync") {
+                let ws: WhisperSyncData = serde_json::from_value(whisper_sync.clone())?;
+                let bytes = serde_json::to_vec(&ws)?;
+                state.db.insert(format!("whisper_sync:{}", id), bytes)?;
+            }
         }
     }
 
