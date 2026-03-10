@@ -9,10 +9,11 @@ interface ChapterBlockProps {
     isLoading: boolean;
     isVertical: boolean;
     settings: Settings;
+    activeBlockId?: string | null;
 }
 
 export const ChapterBlock: React.FC<ChapterBlockProps> = React.memo(
-    ({ html, index, isLoading, isVertical, settings }) => {
+    ({ html, index, isLoading, isVertical, settings, activeBlockId }) => {
         if (isLoading || !html) {
             return (
                 <div
@@ -31,6 +32,21 @@ export const ChapterBlock: React.FC<ChapterBlockProps> = React.memo(
             fontFamily = `${fontFamily}, ${settings.lnSecondaryFontFamily}`;
         }
 
+        // Inject active class if needed
+        const processedHtml = useMemo(() => {
+            if (!activeBlockId || !html) return html;
+
+            // This is a bit expensive but necessary for highlighting in dangerouslySetInnerHTML
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const activeEl = doc.querySelector(`[data-block-id="${activeBlockId}"]`);
+            if (activeEl) {
+                activeEl.classList.add('active-sync-block');
+                return doc.body.innerHTML;
+            }
+            return html;
+        }, [html, activeBlockId]);
+
         return (
             <section
                 className={`chapter-block ${isVertical ? 'vertical' : 'horizontal'} ${!settings.lnEnableFurigana ? 'furigana-hidden' : ''
@@ -46,7 +62,7 @@ export const ChapterBlock: React.FC<ChapterBlockProps> = React.memo(
             >
                 <div
                     className="chapter-content"
-                    dangerouslySetInnerHTML={{ __html: html }}
+                    dangerouslySetInnerHTML={{ __html: processedHtml || '' }}
                 />
             </section>
         );

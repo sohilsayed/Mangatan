@@ -52,6 +52,7 @@ export interface BaseReaderProps {
     onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
     onRemoveHighlight?: (highlightId: string) => void;
     onBlockClick?: (blockId: string) => boolean;
+    activeBlockId?: string | null;
 }
 
 export interface PagedReaderProps extends BaseReaderProps {

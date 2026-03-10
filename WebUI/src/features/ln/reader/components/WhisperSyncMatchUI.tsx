@@ -22,6 +22,7 @@ import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import SaveIcon from '@mui/icons-material/Save';
 import DeleteIcon from '@mui/icons-material/Delete';
 import MinimizeIcon from '@mui/icons-material/Minimize';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
 import { WhisperSyncData, WhisperSyncTrack, WhisperSyncMatch } from '../types/whisperSync';
 
 interface SubtitleLine {
@@ -36,6 +37,7 @@ interface WhisperSyncMatchUIProps {
     data: WhisperSyncData;
     onUpdate: (newData: WhisperSyncData) => Promise<void>;
     onClose: () => void;
+    onJumpToTime?: (time: number) => void;
     theme: { bg: string; fg: string };
     getSubtitleFile: (filename: string) => Promise<string>;
     onSelectBlock: (onSelected: (blockId: string) => void) => void;
@@ -46,6 +48,7 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
     data,
     onUpdate,
     onClose,
+    onJumpToTime,
     theme,
     getSubtitleFile,
     onSelectBlock
@@ -55,6 +58,7 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
     const [currentIndex, setCurrentIndex] = useState(0);
     const [matches, setMatches] = useState<WhisperSyncMatch[]>([]);
     const [isMinimized, setIsMinimized] = useState(false);
+    const [isAutoMatching, setIsAutoMatching] = useState(false);
 
     useEffect(() => {
         const loadSubtitles = async () => {
@@ -80,29 +84,41 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
 
     const parseVTTorSRT = (content: string): SubtitleLine[] => {
         const lines: SubtitleLine[] = [];
-        const blocks = content.trim().split(/\n\s*\n/);
+        // Normalizing line endings and splitting by potential block separators
+        const normalized = content.replace(/\r\n/g, '\n').trim();
+        const blocks = normalized.split(/\n\s*\n/);
 
         let index = 0;
         for (const block of blocks) {
             const parts = block.trim().split('\n');
             if (parts.length < 2) continue;
 
-            let timeLine = parts[0];
-            let textStart = 1;
+            let timeLine = '';
+            let textStart = 0;
 
-            if (/^\d+$/.test(parts[0])) {
-                timeLine = parts[1];
-                textStart = 2;
-            }
+            // Find the line containing the timestamp arrow
+            const timeLineIdx = parts.findIndex(p => p.includes('-->'));
+            if (timeLineIdx === -1) continue;
 
-            const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2}[.,]\d{3}) --> (\d{2}:\d{2}:\d{2}[.,]\d{3})/);
+            timeLine = parts[timeLineIdx];
+            textStart = timeLineIdx + 1;
+
+            // Robust regex for timestamps (handles missing hours or different separators)
+            const timestampRegex = /((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{3})\s*-->\s*((?:\d{1,2}:)?\d{1,2}:\d{2}[.,]\d{3})/;
+            const timeMatch = timeLine.match(timestampRegex);
+
             if (timeMatch) {
                 const startTime = parseTime(timeMatch[1]);
                 const endTime = parseTime(timeMatch[2]);
-                const text = parts.slice(textStart).join(' ').replace(/<[^>]*>/g, '');
+                const text = parts.slice(textStart).join(' ')
+                    .replace(/\{[^}]+\}/g, '') // Remove ASS-style tags
+                    .replace(/<[^>]*>/g, '')   // Remove HTML-style tags
+                    .trim();
 
-                lines.push({ index, startTime, endTime, text });
-                index++;
+                if (text) {
+                    lines.push({ index, startTime, endTime, text });
+                    index++;
+                }
             }
         }
         return lines;
@@ -110,10 +126,17 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
 
     const parseTime = (timeStr: string): number => {
         const parts = timeStr.replace(',', '.').split(':');
-        const h = parseFloat(parts[0]);
-        const m = parseFloat(parts[1]);
-        const s = parseFloat(parts[2]);
-        return h * 3600 + m * 60 + s;
+        if (parts.length === 3) {
+            const h = parseFloat(parts[0]);
+            const m = parseFloat(parts[1]);
+            const s = parseFloat(parts[2]);
+            return h * 3600 + m * 60 + s;
+        } else if (parts.length === 2) {
+            const m = parseFloat(parts[0]);
+            const s = parseFloat(parts[1]);
+            return m * 60 + s;
+        }
+        return parseFloat(parts[0]) || 0;
     };
 
     const handleMatch = () => {
@@ -151,6 +174,72 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
 
     const handleClearMatch = (idx: number) => {
         setMatches(prev => prev.filter(m => m.subtitleIndex !== idx));
+    };
+
+    const handleAutoMatch = async () => {
+        if (subtitles.length === 0) return;
+        setIsAutoMatching(true);
+
+        try {
+            // Find all blocks in the DOM
+            const allBlocks = Array.from(document.querySelectorAll('[data-block-id]'));
+            const blockData = allBlocks.map(el => ({
+                id: el.getAttribute('data-block-id')!,
+                text: el.textContent?.trim().toLowerCase() || ''
+            })).filter(b => b.text.length > 5);
+
+            if (blockData.length === 0) return;
+
+            const newMatches: WhisperSyncMatch[] = [];
+            let lastBlockIndex = 0;
+
+            // Simple fuzzy match algorithm
+            for (let i = 0; i < subtitles.length; i++) {
+                const sub = subtitles[i];
+                const subText = sub.text.toLowerCase();
+                if (subText.length < 5) continue;
+
+                let bestMatch = -1;
+                let bestScore = 0;
+
+                // Search in a window around the last matched block to maintain order and speed
+                const searchStart = Math.max(0, lastBlockIndex);
+                const searchEnd = Math.min(blockData.length, lastBlockIndex + 50);
+
+                for (let j = searchStart; j < searchEnd; j++) {
+                    const blockText = blockData[j].text;
+
+                    // Count common characters (very simple heuristic)
+                    let score = 0;
+                    if (blockText.includes(subText) || subText.includes(blockText)) {
+                        score = Math.min(subText.length, blockText.length);
+                    }
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = j;
+                    }
+                }
+
+                if (bestMatch !== -1 && bestScore > 10) {
+                    newMatches.push({
+                        trackId: track.id,
+                        subtitleIndex: sub.index,
+                        blockId: blockData[bestMatch].id,
+                        startTime: sub.startTime,
+                        endTime: sub.endTime,
+                    });
+                    lastBlockIndex = bestMatch;
+                }
+            }
+
+            setMatches(prev => {
+                const filtered = prev.filter(m => !newMatches.some(nm => nm.subtitleIndex === m.subtitleIndex));
+                return [...filtered, ...newMatches].sort((a, b) => a.subtitleIndex - b.subtitleIndex);
+            });
+        } finally {
+            setIsAutoMatching(false);
+        }
     };
 
     const currentMatch = useMemo(() => matches.find(m => m.subtitleIndex === currentIndex), [matches, currentIndex]);
@@ -228,6 +317,16 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
                 <Typography variant="subtitle1" sx={{ flex: 1, fontWeight: 600, noWrap: true } as any}>Match Subtitles</Typography>
                 <IconButton onClick={() => setIsMinimized(true)} sx={{ color: theme.fg }}><MinimizeIcon /></IconButton>
                 <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={isAutoMatching ? <CircularProgress size={16} /> : <AutoFixHighIcon />}
+                    onClick={handleAutoMatch}
+                    disabled={isAutoMatching}
+                    sx={{ color: theme.fg, borderColor: theme.fg }}
+                >
+                    Auto
+                </Button>
+                <Button
                     variant="contained"
                     size="small"
                     startIcon={<SaveIcon />}
@@ -290,6 +389,7 @@ export const WhisperSyncMatchUI: React.FC<WhisperSyncMatchUIProps> = ({
                                 <ListItem
                                     key={match.subtitleIndex}
                                     disablePadding
+                                    onClick={() => onJumpToTime?.(match.startTime)}
                                     secondaryAction={
                                         <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleClearMatch(match.subtitleIndex); }} sx={{ color: theme.fg, opacity: 0.5 }}>
                                             <DeleteIcon fontSize="small" />

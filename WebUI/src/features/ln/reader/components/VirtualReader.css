@@ -747,3 +747,11 @@ figure,
     break-inside: avoid;
     page-break-inside: avoid;
 }
+/* =====================================================
+   WHISPER SYNC STYLES
+   ===================================================== */
+.active-sync-block {
+    background-color: var(--ln-highlight-bg, rgba(255, 235, 59, 0.45)) !important;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}

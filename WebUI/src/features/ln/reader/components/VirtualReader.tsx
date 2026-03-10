@@ -45,6 +45,7 @@ interface VirtualReaderProps {
     highlights?: LNHighlight[];
     onAddHighlight?: (chapterIndex: number, blockId: string, text: string, startOffset: number, endOffset: number) => void;
     onBlockClick?: (blockId: string) => boolean;
+    activeBlockId?: string | null;
     safeAreaTopInset?: string;
     safeAreaTopOffsetPx?: number;
     safeAreaInsetsPx?: {
@@ -87,6 +88,7 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
     highlights = [],
     onAddHighlight,
     onBlockClick,
+    activeBlockId,
     safeAreaTopInset,
     safeAreaTopOffsetPx,
     safeAreaInsetsPx,
@@ -321,7 +323,8 @@ export const VirtualReader: React.FC<VirtualReaderProps> = ({
         chapterFilenames,
         highlights,
         onAddHighlight: handleAddHighlight,
-    onBlockClick,
+        onBlockClick,
+        activeBlockId,
         safeAreaTopInset,
         safeAreaTopOffsetPx,
         navigationRef,

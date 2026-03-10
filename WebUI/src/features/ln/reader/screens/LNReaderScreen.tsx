@@ -45,6 +45,7 @@ import { useWhisperSync } from '../hooks/useWhisperSync';
 import { WhisperSyncTrack } from '../types/whisperSync';
 import { YomitanPopup } from '@/Manatan/components/YomitanPopup';
 import { useSyncOnChapterOpen, useSyncOnChapterRead } from '@/features/sync/services/useSyncTriggers';
+import { useHotkeys } from 'react-hotkeys-hook';
 
 const THEMES = {
     light: { bg: '#FFFFFF', fg: '#1a1a1a' },
@@ -84,6 +85,10 @@ export const LNReaderScreen: React.FC = () => {
     // @ts-ignore
     const [onBlockSelected, setOnBlockSelected] = useState<((blockId: string) => void) | null>(null);
     const [lastAutoScrolledBlockId, setLastAutoScrolledBlockId] = useState<string | null>(null);
+    const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+    const [isPlaying, setIsPlaying] = useState(false);
+    // @ts-ignore
+    const [currentTime, setCurrentTime] = useState(0);
     const [expandedToc, setExpandedToc] = useState<Set<number>>(new Set());
     const navigationRef = useRef<{ scrollToBlock?: (blockId: string, offset?: number) => void; scrollToChapter?: (chapterIndex: number) => void }>({});
     const isIOS = typeof navigator !== 'undefined' && /iPhone|iPad|iPod/i.test(navigator.userAgent);
@@ -373,19 +378,48 @@ export const LNReaderScreen: React.FC = () => {
         setWhisperSyncOpen(false);
     };
 
-    const handleTimeUpdate = (currentTime: number) => {
-        if (!whisperSyncData || !activeTrack) return;
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+
+    const handleTimeUpdate = (time: number) => {
+        setCurrentTime(time);
+        if (!whisperSyncData || !activeTrack) {
+            if (activeBlockId) setActiveBlockId(null);
+            return;
+        }
 
         // Find the match corresponding to the current time
         const matches = whisperSyncData.matches.filter(m => m.trackId === activeTrack.id);
-        const currentMatch = matches.find(m => currentTime >= m.startTime && currentTime <= m.endTime);
+        const currentMatch = matches.find(m => time >= m.startTime && time <= m.endTime);
 
-        if (currentMatch && currentMatch.blockId !== lastAutoScrolledBlockId && navigationRef.current?.scrollToBlock) {
-            // Only scroll if auto-scroll is enabled (you can add a setting for this, using true for now)
-            navigationRef.current.scrollToBlock(currentMatch.blockId, 0);
-            setLastAutoScrolledBlockId(currentMatch.blockId);
+        if (currentMatch) {
+            if (currentMatch.blockId !== activeBlockId) {
+                setActiveBlockId(currentMatch.blockId);
+            }
+            if (currentMatch.blockId !== lastAutoScrolledBlockId && navigationRef.current?.scrollToBlock) {
+                navigationRef.current.scrollToBlock(currentMatch.blockId, 0);
+                setLastAutoScrolledBlockId(currentMatch.blockId);
+            }
+        } else if (activeBlockId) {
+            setActiveBlockId(null);
         }
     };
+
+    // Keybindings
+    useHotkeys('space', (e) => {
+        e.preventDefault();
+        if (audioRef.current) {
+            if (isPlaying) audioRef.current.pause();
+            else audioRef.current.play();
+        }
+    }, { enabled: !!activeTrack });
+
+    useHotkeys('left', () => {
+        if (audioRef.current) audioRef.current.currentTime -= 5;
+    }, { enabled: !!activeTrack });
+
+    useHotkeys('right', () => {
+        if (audioRef.current) audioRef.current.currentTime += 5;
+    }, { enabled: !!activeTrack });
 
     const handleOpenMatchUI = (track: WhisperSyncTrack) => {
         setMatchTrack(track);
@@ -642,6 +676,7 @@ export const LNReaderScreen: React.FC = () => {
                 highlights={highlights}
                 onAddHighlight={addHighlight}
                 onBlockClick={handleBlockClick}
+                activeBlockId={activeBlockId}
                 onUpdateSettings={(key, value) => setLnSettings({ [key]: value })}
                 onChapterChange={handleChapterChange}
                 navigationRef={navigationRef}
@@ -1106,6 +1141,11 @@ export const LNReaderScreen: React.FC = () => {
                     data={whisperSyncData}
                     onUpdate={updateWhisperSyncData}
                     onClose={() => setMatchTrack(null)}
+                    onJumpToTime={(time) => {
+                        if (audioRef.current) {
+                            audioRef.current.currentTime = time;
+                        }
+                    }}
                     theme={theme}
                     getSubtitleFile={async (filename) => {
                         const url = getWhisperSyncFileUrl(filename);
@@ -1119,9 +1159,13 @@ export const LNReaderScreen: React.FC = () => {
             {activeTrack && (
                 <WhisperSyncPlayer
                     src={getWhisperSyncFileUrl(activeTrack.audioFilename)}
-                    label={activeTrack.label}
+                    label={content.metadata.title}
+                    activeTrackLabel={activeTrack.label}
                     onTimeUpdate={handleTimeUpdate}
                     onClose={() => setActiveTrack(null)}
+                    isPlaying={isPlaying}
+                    onTogglePlay={() => setIsPlaying(!isPlaying)}
+                    audioRef={audioRef}
                     theme={theme}
                 />
             )}
@@ -1130,17 +1174,21 @@ export const LNReaderScreen: React.FC = () => {
                 <Box
                     sx={{
                         position: 'fixed',
-                        top: '50%',
+                        top: '20%',
                         left: '50%',
-                        transform: 'translate(-50%, -50%)',
+                        transform: 'translateX(-50%)',
                         zIndex: 2000,
-                        bgcolor: 'rgba(0,0,0,0.8)',
+                        bgcolor: 'rgba(0,0,0,0.85)',
                         color: 'white',
-                        px: 3,
-                        py: 2,
-                        borderRadius: 2,
+                        px: 4,
+                        py: 2.5,
+                        borderRadius: 3,
                         pointerEvents: 'none',
-                        textAlign: 'center'
+                        textAlign: 'center',
+                        width: 'max-content',
+                        maxWidth: '80vw',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                        backdropFilter: 'blur(4px)',
                     } as any}
                 >
                     <Typography variant="h6">Matching Mode</Typography>

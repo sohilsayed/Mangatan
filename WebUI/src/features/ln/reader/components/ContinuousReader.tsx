@@ -65,6 +65,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
     onAddHighlight,
     onRemoveHighlight,
     onBlockClick,
+    activeBlockId,
     navigationRef,
     css,
 }) => {
@@ -1090,6 +1091,7 @@ export const ContinuousReader: React.FC<ContinuousReaderProps> = ({
                                 isLoading={loadingState.get(index) || false}
                                 isVertical={isVertical}
                                 settings={settings}
+                                    activeBlockId={activeBlockId}
                             />
                         ))}
                     </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     IconButton,
@@ -20,19 +20,25 @@ interface WhisperSyncPlayerProps {
     src: string;
     onTimeUpdate: (currentTime: number) => void;
     onClose: () => void;
+    isPlaying: boolean;
+    onTogglePlay: () => void;
+    audioRef: React.MutableRefObject<HTMLAudioElement | null>;
     theme: { bg: string; fg: string };
     label?: string;
+    activeTrackLabel?: string;
 }
 
 export const WhisperSyncPlayer: React.FC<WhisperSyncPlayerProps> = ({
     src,
     onTimeUpdate,
     onClose,
+    isPlaying,
+    onTogglePlay,
+    audioRef,
     theme,
-    label
+    label,
+    activeTrackLabel
 }) => {
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [playbackSpeed, setPlaybackSpeed] = useState(1);
@@ -59,7 +65,6 @@ export const WhisperSyncPlayer: React.FC<WhisperSyncPlayerProps> = ({
             } else {
                 audioRef.current.play();
             }
-            setIsPlaying(!isPlaying);
         }
     };
 
@@ -87,13 +92,40 @@ export const WhisperSyncPlayer: React.FC<WhisperSyncPlayerProps> = ({
 
     useEffect(() => {
         if (audioRef.current) {
+            const wasPlaying = isPlaying;
             audioRef.current.src = src;
             audioRef.current.playbackRate = playbackSpeed;
-            if (isPlaying) {
-                audioRef.current.play().catch(e => console.error('Auto-play failed:', e));
+            audioRef.current.load(); // Ensure source is loaded on mobile
+            if (wasPlaying) {
+                audioRef.current.play().catch(e => {
+                    console.warn('Auto-play blocked by browser. User interaction required:', e);
+                });
             }
         }
     }, [src]);
+
+    useEffect(() => {
+        if ('mediaSession' in navigator && activeTrackLabel) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: activeTrackLabel,
+                artist: 'Light Novel Audiobook',
+                album: label || 'Whisper Sync',
+            });
+
+            navigator.mediaSession.setActionHandler('play', () => {
+                audioRef.current?.play();
+            });
+            navigator.mediaSession.setActionHandler('pause', () => {
+                audioRef.current?.pause();
+            });
+            navigator.mediaSession.setActionHandler('seekbackward', () => {
+                if (audioRef.current) audioRef.current.currentTime -= 10;
+            });
+            navigator.mediaSession.setActionHandler('seekforward', () => {
+                if (audioRef.current) audioRef.current.currentTime += 30;
+            });
+        }
+    }, [label, activeTrackLabel]);
 
     return (
         <Paper
@@ -140,14 +172,14 @@ export const WhisperSyncPlayer: React.FC<WhisperSyncPlayerProps> = ({
                 <Typography variant="caption" sx={{ minWidth: 35 }}>{formatTime(duration)}</Typography>
             </Box>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-                <IconButton size="small" onClick={() => { if (audioRef.current) audioRef.current.currentTime -= 10 }} sx={{ color: theme.fg }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                <IconButton onClick={() => { if (audioRef.current) audioRef.current.currentTime -= 10 }} sx={{ color: theme.fg, p: 1.5 }}>
                     <SkipPreviousIcon />
                 </IconButton>
-                <IconButton onClick={togglePlay} sx={{ color: theme.fg, bgcolor: `${theme.fg}11` }}>
+                <IconButton onClick={togglePlay} sx={{ color: theme.fg, bgcolor: `${theme.fg}11`, p: 2 }}>
                     {isPlaying ? <PauseIcon fontSize="large" /> : <PlayArrowIcon fontSize="large" />}
                 </IconButton>
-                <IconButton size="small" onClick={() => { if (audioRef.current) audioRef.current.currentTime += 30 }} sx={{ color: theme.fg }}>
+                <IconButton onClick={() => { if (audioRef.current) audioRef.current.currentTime += 30 }} sx={{ color: theme.fg, p: 1.5 }}>
                     <SkipNextIcon />
                 </IconButton>
                 <Box sx={{ flex: 1 }} />
@@ -178,7 +210,9 @@ export const WhisperSyncPlayer: React.FC<WhisperSyncPlayerProps> = ({
                 ref={audioRef}
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
-                onEnded={() => setIsPlaying(false)}
+                onPlay={() => { if (!isPlaying) onTogglePlay(); }}
+                onPause={() => { if (isPlaying) onTogglePlay(); }}
+                onEnded={() => { if (isPlaying) onTogglePlay(); }}
             />
         </Paper>
     );

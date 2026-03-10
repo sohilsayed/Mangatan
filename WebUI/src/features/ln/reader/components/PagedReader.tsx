@@ -168,6 +168,7 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
     onAddHighlight,
     onRemoveHighlight,
     onBlockClick,
+    activeBlockId,
     navigationRef,
     css,
 }) => {
@@ -255,15 +256,28 @@ export const PagedReader: React.FC<PagedReaderProps> = ({
 
     const currentHtml = useMemo(() => chapters[currentSection] || '', [chapters, currentSection]);
 
-    // Apply highlights to the HTML
+    // Apply highlights and active sync block to the HTML
     const highlightedHtml = useMemo(() => {
-        if (!highlights || highlights.length === 0) return currentHtml;
+        let html = currentHtml;
+        if (highlights && highlights.length > 0) {
+            const chapterHighlights = highlights.filter((h) => h.chapterIndex === currentSection);
+            if (chapterHighlights.length > 0) {
+                html = applyHighlightsToHtml(html, chapterHighlights, currentSection);
+            }
+        }
 
-        const chapterHighlights = highlights.filter((h) => h.chapterIndex === currentSection);
-        if (chapterHighlights.length === 0) return currentHtml;
+        if (activeBlockId && html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const activeEl = doc.querySelector(`[data-block-id="${activeBlockId}"]`);
+            if (activeEl) {
+                activeEl.classList.add('active-sync-block');
+                return doc.body.innerHTML;
+            }
+        }
 
-        return applyHighlightsToHtml(currentHtml, chapterHighlights, currentSection);
-    }, [currentHtml, highlights, currentSection]);
+        return html;
+    }, [currentHtml, highlights, currentSection, activeBlockId]);
 
     // ========================================================================
     // Simple Derived Values
